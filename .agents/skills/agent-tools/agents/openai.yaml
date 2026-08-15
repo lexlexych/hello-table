@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent tools"
+  short_description: "Project rules for voice agent tools"
+  default_prompt: "Use $agent-tools for this agent tool change."

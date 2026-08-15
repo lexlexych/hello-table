@@ -1,0 +1,4 @@
+interface:
+  display_name: "Voice testing"
+  short_description: "Project voice-agent testing checklist"
+  default_prompt: "Use $voice-testing to verify the voice agent."

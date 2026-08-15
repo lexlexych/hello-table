@@ -1,0 +1,4 @@
+interface:
+  display_name: "Database migrations"
+  short_description: "Project rules for PostgreSQL changes"
+  default_prompt: "Use $db-migrations for this database change."

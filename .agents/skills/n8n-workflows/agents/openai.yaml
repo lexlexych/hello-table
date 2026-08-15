@@ -1,0 +1,4 @@
+interface:
+  display_name: "n8n workflows"
+  short_description: "Project rules for n8n workflow changes"
+  default_prompt: "Use $n8n-workflows for this n8n workflow change."

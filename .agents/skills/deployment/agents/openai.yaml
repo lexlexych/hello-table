@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deployment"
+  short_description: "Project deployment and infrastructure rules"
+  default_prompt: "Use $deployment for this infrastructure change."
