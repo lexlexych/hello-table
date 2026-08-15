@@ -1,0 +1,56 @@
+# СКЕЛЕТ (итерация 1). Не предназначен для запуска: тома, env, healthchecks, сети и
+# точные версии образов добавляются в своих итерациях (БД — 2, n8n — 5, портал — 9,
+# деплой — 12, SIP — 13, piper — 14).
+# Топология — docs/PROJECT.md §3.1, лимиты памяти — §8.2.1, порты и фаервол — §8.3.
+
+services:
+  caddy:
+    image: caddy:2 # точную версию зафиксировать в итерации 12
+    mem_limit: 128m
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+
+  livekit:
+    image: livekit/livekit-server # версию зафиксировать в итерации 12
+    mem_limit: 512m
+    restart: unless-stopped
+    ports:
+      - "7881:7881"
+      - "50000-60000:50000-60000/udp"
+
+  livekit-sip:
+    image: livekit/sip # версию зафиксировать в итерации 13
+    mem_limit: 256m
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "10000-20000:10000-20000/udp"
+
+  agent:
+    build: ../agent # Dockerfile появится в итерации 3
+    mem_limit: 4g # супервизор + процессы сессий звонков
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n # версию ветки 2.x зафиксировать в итерации 5
+    mem_limit: 1g # EXECUTIONS_DATA_PRUNE=true, EXECUTIONS_DATA_MAX_AGE=168
+    restart: unless-stopped
+    # наружу не публикуется; доступ только через Caddy с ограничением по IP владельца
+
+  postgres:
+    image: postgres:18 # точную минорную версию зафиксировать в итерации 2
+    mem_limit: 1g # shared_buffers 512MB, max_connections 40
+    restart: unless-stopped
+    # наружу не публикуется; только внутри docker-сети
+
+  portal:
+    build: ../portal # Dockerfile появится в итерации 9
+    mem_limit: 512m # NODE_OPTIONS=--max-old-space-size=384
+    restart: unless-stopped
+    # наружу не публикуется; доступ через Caddy (app.<домен>)
+
+# piper (TTS ru, mem_limit ~256m) добавляется в итерации 14 — docs/PROJECT.md §2.2
+# На сервере дополнительно: swap 2 ГБ (страховка от OOM-kill), фаервол по §8.3
