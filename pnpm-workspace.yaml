@@ -2,3 +2,15 @@ packages:
   - packages/*
   - agent
   - portal
+allowBuilds:
+  '@livekit/local-inference': true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@livekit/agents-plugin-elevenlabs@1.6.4'
+  - '@livekit/agents-plugin-livekit@1.6.4'
+  - '@livekit/agents-plugin-mistralai@1.6.4'
+  - '@livekit/agents-plugin-silero@1.6.4'
+  - '@livekit/agents@1.6.4'

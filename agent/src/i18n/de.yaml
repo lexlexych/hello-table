@@ -1,0 +1,6 @@
+# Vor einem echten Kundengespräch muss der Betreiber diesen Text rechtlich prüfen und anpassen.
+# Er darf niemals entfernt oder nach die Begrüßung verschoben werden.
+ai_disclosure: "Hinweis: Sie sprechen mit einem KI-gestützten Sprachassistenten."
+greeting: "Guten Tag, wie kann ich Ihnen helfen?"
+goodbye: "Vielen Dank für Ihren Anruf. Auf Wiederhören."
+error_unavailable: "Entschuldigung, der Sprachdienst ist gerade nicht verfügbar. Bitte versuchen Sie es später erneut."

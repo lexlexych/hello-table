@@ -1,0 +1,25 @@
+{
+  "name": "@hello-table/agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=../.env --enable-source-maps src/bootstrap.ts dev",
+    "start": "node --env-file-if-exists=../.env --enable-source-maps src/bootstrap.ts start",
+    "download-files": "node --enable-source-maps src/download-files.ts download-files",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@livekit/agents": "1.6.4",
+    "@livekit/agents-plugin-elevenlabs": "1.6.4",
+    "@livekit/agents-plugin-livekit": "1.6.4",
+    "@livekit/agents-plugin-mistralai": "1.6.4",
+    "@livekit/agents-plugin-silero": "1.6.4",
+    "@livekit/rtc-node": "0.13.33",
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
+  }
+}

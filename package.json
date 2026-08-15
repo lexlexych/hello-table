@@ -3,13 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.21.0",
   "description": "Голосовой ИИ-агент для ресторана: бронирование, самовывоз, меню, обратный звонок (DE/RU/EN)",
   "engines": {
     "node": ">=24 <25"
   },
   "scripts": {
+    "agent:dev": "pnpm --filter @hello-table/agent dev",
+    "agent:start": "pnpm --filter @hello-table/agent start",
+    "agent:download-files": "pnpm --filter @hello-table/agent download-files",
+    "dev:token": "node --env-file-if-exists=.env scripts/dev-token.ts",
     "db:up": "docker compose -f deploy/docker-compose.dev.yml up -d postgres",
-    "db:down": "docker compose -f deploy/docker-compose.dev.yml down",
+    "db:down": "docker compose -f deploy/docker-compose.dev.yml stop postgres",
     "db:migrate": "node scripts/db/migrate.ts",
     "db:rollback": "node scripts/db/rollback.ts",
     "db:seed": "node scripts/db/seed.ts",
@@ -23,6 +28,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.8",
     "@types/node": "24.13.3",
+    "livekit-server-sdk": "2.17.0",
     "postgres": "3.4.9",
     "typescript": "7.0.2",
     "vitest": "4.1.10"

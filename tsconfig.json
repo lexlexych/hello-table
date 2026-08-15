@@ -5,5 +5,10 @@
     "declaration": false,
     "allowImportingTsExtensions": true
   },
-  "include": ["scripts/**/*.ts", "db/tests/**/*.ts", "vitest.config.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "db/tests/**/*.ts",
+    "agent/**/*.ts",
+    "vitest.config.ts"
+  ]
 }
