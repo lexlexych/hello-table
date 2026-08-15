@@ -1,0 +1,2 @@
+CREATE OR REPLACE FUNCTION app_normalize_text(p_text text) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT AS $$ SELECT lower(unaccent('unaccent'::regdictionary,p_text)) $$;
+CREATE OR REPLACE FUNCTION app_normalize_phone(p_phone text) RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT CASE WHEN p_phone IS NULL OR regexp_replace(p_phone,'\D','','g')='' THEN NULL WHEN left(regexp_replace(p_phone,'\D','','g'),2)='00' THEN substr(regexp_replace(p_phone,'\D','','g'),3) ELSE regexp_replace(p_phone,'\D','','g') END $$;

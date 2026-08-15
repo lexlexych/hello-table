@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION pickup_items_expand(p_items jsonb) RETURNS TABLE(line_menu_item_id uuid,line_quantity int,line_note text) LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT (elem->>'menu_item_id')::uuid,coalesce((elem->>'quantity')::int,1),nullif(btrim(coalesce(elem->>'note','')),'') FROM jsonb_array_elements(p_items) elem $$;

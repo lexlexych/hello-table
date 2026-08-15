@@ -41,3 +41,11 @@
 | `.claude/` | команды `/spec`, `/impl` и навыки-чеклисты |
 
 Целевая структура и план итераций — [docs/PROJECT.md](docs/PROJECT.md), §9 и §12.
+
+## Локальная база данных
+
+Требуются Node.js 24, pnpm и Docker Compose. Запустите PostgreSQL командой `pnpm db:up`,
+затем примените схему и демо-данные: `pnpm db:migrate && pnpm db:seed`. Повторное применение
+безопасно. `pnpm test` пересоздаёт только локальную базу `restaurant_test`; реальные `.env`,
+API-ключи и внешняя сеть тестам не нужны. Разрушительный `db:reset` требует
+`DB_RESET_CONFIRM=1` или `--yes`. Подробности и SQLSTATE — в `db/README.md`.

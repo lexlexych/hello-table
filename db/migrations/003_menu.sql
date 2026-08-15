@@ -1,0 +1,7 @@
+-- Menu catalogue.
+-- migrate:up
+CREATE TABLE menu_categories(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),restaurant_id uuid NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,name_de text NOT NULL CHECK(btrim(name_de)<>''),name_ru text NOT NULL CHECK(btrim(name_ru)<>''),name_en text NOT NULL CHECK(btrim(name_en)<>''),sort_order int NOT NULL DEFAULT 0,UNIQUE(restaurant_id,name_de));
+CREATE TABLE menu_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),category_id uuid NOT NULL REFERENCES menu_categories(id) ON DELETE RESTRICT,name_de text NOT NULL CHECK(btrim(name_de)<>''),name_ru text NOT NULL CHECK(btrim(name_ru)<>''),name_en text NOT NULL CHECK(btrim(name_en)<>''),description_de text,description_ru text,description_en text,price_cents int NOT NULL CHECK(price_cents>=0),allergens text[] NOT NULL DEFAULT '{}' CHECK(allergens <@ ARRAY['gluten','crustaceans','eggs','fish','peanuts','soybeans','milk','nuts','celery','mustard','sesame','sulphites','lupin','molluscs']::text[]),is_vegetarian bool NOT NULL DEFAULT false,is_vegan bool NOT NULL DEFAULT false,is_available bool NOT NULL DEFAULT true,aliases text[] NOT NULL DEFAULT '{}',prep_minutes int NOT NULL DEFAULT 15 CHECK(prep_minutes BETWEEN 0 AND 240),CHECK(NOT is_vegan OR is_vegetarian));
+CREATE INDEX menu_items_category_idx ON menu_items(category_id); CREATE INDEX menu_items_available_idx ON menu_items(category_id) WHERE is_available;
+-- migrate:down
+DROP TABLE menu_items; DROP TABLE menu_categories;

@@ -2,7 +2,7 @@
 spec: 001
 title: База данных — схема, функции, роли, seed, тесты на гонку
 iteration: 2
-status: ready-for-impl
+status: implemented
 author: claude-code
 date: 2026-08-15
 ---
