@@ -385,11 +385,17 @@ agent.tool("create_reservation")
 
 ### 4.2 Языковые ресурсы
 
-Все произносимые агентом фиксированные фразы (приветствие, объявление об ИИ,
-филлеры, извинения, прощание, аварийное сообщение) хранятся в
-`agent/src/agent/i18n/{de,ru,en}.yaml`. Не хардкодить строки в коде и не
-генерировать их LLM — это фразы с юридическим значением и они должны быть
-предсказуемы.
+Все произносимые агентом фиксированные фразы (филлеры, извинения, прощание,
+аварийное сообщение) хранятся в `agent/src/i18n/{de,ru,en}.yaml` — путь по §9.
+Не хардкодить строки в коде и не генерировать их LLM — это фразы с юридическим
+значением и они должны быть предсказуемы.
+
+Исключение — два текста, которые ресторан правит сам в портале (§7.3):
+**объявление об ИИ** и **приветствие**. Они у каждого ресторана свои и хранятся
+в базе (`restaurants.ai_disclosure_{de,ru,en}`, `restaurants.greeting_{de,ru,en}`),
+потому что объявление об ИИ обязано валидироваться на уровне базы (§11.1), а
+приветствие редактируется без передеплоя агента. Приветствие может быть пустым —
+тогда агент берёт фразу из yaml. Уточнено в спецификации 001.
 
 Названия блюд в базе хранятся с полями `name_de`, `name_ru`, `name_en`.
 
@@ -413,10 +419,14 @@ restaurants
   phone_e164, address, default_language char(2) default 'de',
   enabled_languages char(2)[] default '{de,ru,en}',
   slot_minutes int default 90, buffer_minutes int default 15,
+  booking_step_minutes int default 15,     -- шаг сетки времён начала брони
   max_party_size int default 8,
   pickup_lead_minutes int default 30,      -- минимальное время до готовности
   pickup_slot_capacity int default 4,      -- заказов на 15-минутный слот
+  callback_within_minutes int default 30,  -- обещанный срок перезвона, §6.2
   telegram_chat_id text,
+  ai_disclosure_de/ru/en text NOT NULL,    -- §11.1, CHECK: не пустое
+  greeting_de/ru/en text,                  -- NULL → фраза из i18n-yaml, §4.2
   is_active bool default true, created_at
 
 restaurant_tables
@@ -478,30 +488,42 @@ call_logs
 
 ⚠️ `delete_after` заполняется триггером и обслуживается ночным заданием
 автоудаления. Для броней — дата визита + 30 дней, для заказов — дата выдачи +
-30 дней, для обратных звонков — дата обработки + 14 дней.
+30 дней, для обратных звонков — дата обработки + 14 дней. Уточнение (спека 001):
+у необработанного запроса на обратный звонок `handled_at` пуст, поэтому срок
+считается от `coalesce(handled_at, created_at)` — иначе такой запрос не удалялся
+бы никогда.
+
+⚠️ Флаг `restaurant_tables.combinable` в версии 1 **не используется**:
+объединение столиков под большую компанию не реализуется, бронь всегда занимает
+ровно один столик. Колонка заведена сразу, чтобы не менять схему потом.
 
 ### 5.2 Функции Postgres
 
 ```sql
-find_available_slots(restaurant, date, party_size, preferred_time)
-  → (slot_time timestamptz, table_id uuid, seats int)
+find_available_slots(restaurant, date, party_size, preferred_time, limit)
+  → (slot_time timestamptz, slot_table_id uuid, slot_table_label text,
+     slot_seats int)
 
 create_reservation_atomic(restaurant, starts_at, party_size, name, phone,
                           language, source)
-  → uuid  |  RAISE 'no_table_available'
+  → (reservation_id uuid, assigned_table_id uuid, assigned_table_label text,
+     confirmed_starts_at timestamptz, confirmed_ends_at timestamptz)
+  |  RAISE 'no_table_available' | 'closed_at_requested_time' | 'party_too_large'
 
 cancel_reservation_by_phone(restaurant, phone, date) → int
 
-find_menu_items(restaurant, query text, lang char(2))
+find_menu_items(restaurant, query text, lang char(2), vegan_only, vegetarian_only,
+                exclude_allergens text[], limit)
   → позиции, только is_available = true; поиск по name_* и aliases
 
-find_pickup_slots(restaurant, earliest timestamptz, prep_minutes int)
-  → доступные слоты с учётом pickup_slot_capacity
+find_pickup_slots(restaurant, earliest timestamptz, prep_minutes int, limit)
+  → (slot_time timestamptz, free_capacity int) с учётом pickup_slot_capacity
 
 create_pickup_order_atomic(restaurant, items jsonb, ready_at, name, phone,
                            language, source)
-  → (order_id uuid, order_number text, total_cents int)
-     |  RAISE 'slot_full' | RAISE 'item_unavailable'
+  → (pickup_order_id uuid, assigned_order_number text, order_total_cents int,
+     confirmed_ready_at timestamptz)
+     |  RAISE 'slot_full' | 'item_unavailable' | 'pickup_too_early'
 
 create_callback_request(restaurant, phone, language, summary, category) → uuid
 
@@ -510,6 +532,19 @@ purge_expired_personal_data() → int   -- вызывается ночным cro
 
 Все функции — `SECURITY DEFINER`, владелец `app_owner`, право `EXECUTE` выдано
 роли `n8n_app`.
+
+⚠️ Уточнения, зафиксированные спекой 001:
+
+- Функции создания возвращают **всё, что нужно для ответа инструмента** (метку
+  столика, подтверждённое время, номер заказа), а не только id. Причина: у роли
+  `n8n_app` нет прав на таблицы (§3.5), дочитать метку столика после вставки
+  она не может.
+- Имена выходных полей намеренно не совпадают с именами колонок
+  (`assigned_table_label`, а не `label`): в plpgsql совпадение имени OUT-параметра
+  с именем колонки даёт ошибку неоднозначности.
+- Каждая ошибка функций поднимается с собственным SQLSTATE из диапазона `45xxx`
+  и машинным текстом сообщения. Таблица кодов — `db/README.md`; итерация 5
+  отображает их на enum-коды ошибок инструментов.
 
 ### 5.3 Роли базы
 
