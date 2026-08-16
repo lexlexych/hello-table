@@ -33,9 +33,32 @@ export interface TelemetrySnapshot {
   rssBytes: number;
 }
 
+/** Один завершённый ход с номером по порядку — то, что пишется в лог сразу после ответа. */
+export interface TurnLatencyRecord extends TurnLatency {
+  turn: number;
+}
+
+/**
+ * Реплика цепочки. `stage` говорит, какое звено её произвело: `stt` — распознанная речь
+ * гостя, `llm` — ответ модели (он же уходит в TTS).
+ */
+export interface TranscriptRecord {
+  stage: "stt" | "llm";
+  text: string;
+  language?: string;
+}
+
 export interface TelemetryDependencies {
   writeSummary?: (snapshot: TelemetrySnapshot) => void;
+  writeTurn?: (record: TurnLatencyRecord) => void;
+  writeTranscript?: (record: TranscriptRecord) => void;
   readRss?: () => number;
+  /**
+   * Разрешает писать в лог тексты реплик. По умолчанию выключено: PROJECT.md §0.4 и §11.3
+   * запрещают логировать персональные данные. Включается только для отладки на синтетических
+   * данных (AGENT_LOG_TRANSCRIPTS=true).
+   */
+  logTranscripts?: boolean;
 }
 
 export interface TurnMetricsCollector {
@@ -132,7 +155,10 @@ export function createTurnMetricsCollector(): TurnMetricsCollector {
   };
 }
 
-/** Subscribes to numeric framework metrics; no transcript or conversation events are observed. */
+/**
+ * Subscribes to framework metrics and writes one numeric line per completed turn plus a summary
+ * at close. Transcript text is observed only when `logTranscripts` is explicitly enabled.
+ */
 export function attachTelemetry<ProcessData>(
   session: voice.AgentSession,
   ctx: JobContext<ProcessData>,
@@ -146,14 +172,53 @@ export function attachTelemetry<ProcessData>(
     ((snapshot: TelemetrySnapshot) => {
       log().info(snapshot, "agent_session_summary");
     });
+  const writeTurn =
+    dependencies.writeTurn ??
+    ((record: TurnLatencyRecord) => {
+      log().info(record, "agent_turn_latency");
+    });
+  const writeTranscript =
+    dependencies.writeTranscript ??
+    ((record: TranscriptRecord) => {
+      log().info(record, "agent_transcript");
+    });
   const readRss = dependencies.readRss ?? (() => process.memoryUsage().rss);
 
   session.on(AgentSessionEventTypes.MetricsCollected, ({ metrics }) => {
     const turn = collector.add(metrics);
     if (turn !== null) {
       turns.push(turn);
+      writeTurn({ turn: turns.length, ...turn });
     }
   });
+
+  if (dependencies.logTranscripts === true) {
+    session.on(
+      AgentSessionEventTypes.UserInputTranscribed,
+      ({ transcript, isFinal, language }) => {
+        if (!isFinal) {
+          return;
+        }
+        const record: TranscriptRecord = { stage: "stt", text: transcript };
+        if (language !== null && language !== undefined) {
+          record.language = language;
+        }
+        writeTranscript(record);
+      },
+    );
+
+    session.on(AgentSessionEventTypes.ConversationItemAdded, ({ item }) => {
+      // AgentHandoffItem не несёт текста реплики и в этом прототипе не возникает.
+      if (!("role" in item) || item.role !== "assistant") {
+        return;
+      }
+      const text = item.textContent;
+      if (text === undefined || text.length === 0) {
+        return;
+      }
+      writeTranscript({ stage: "llm", text });
+    });
+  }
 
   session.once(AgentSessionEventTypes.Close, () => {
     writeSummary({

@@ -35,6 +35,16 @@ export const configSchema = z
       .max(10_000)
       .default(3_000),
 
+    /**
+     * Пишет в лог тексты реплик (STT и ответ модели) вместе с задержками звеньев.
+     * Выключено по умолчанию: PROJECT.md §0.4 запрещает логировать персональные данные.
+     * Включать только для локальной отладки на вымышленных данных.
+     */
+    AGENT_LOG_TRANSCRIPTS: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   })
   .superRefine((config, context) => {

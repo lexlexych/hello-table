@@ -35,7 +35,9 @@ export function createAgent(config: Config) {
 
       const phrases = await loadGermanPhrases();
       const session = new voice.AgentSession(buildSessionOptions(config, vad));
-      attachTelemetry(session, ctx);
+      attachTelemetry(session, ctx, {
+        logTranscripts: config.AGENT_LOG_TRANSCRIPTS,
+      });
 
       let recoveryPhraseSpoken = false;
       session.on(AgentSessionEventTypes.Error, () => {

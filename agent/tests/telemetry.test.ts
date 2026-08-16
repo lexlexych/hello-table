@@ -15,6 +15,8 @@ import {
   createTurnMetricsCollector,
   summarizeSession,
   summarizeTurn,
+  type TranscriptRecord,
+  type TurnLatencyRecord,
 } from "../src/telemetry.ts";
 
 function metrics(speechId = "speech-1"): [EOUMetrics, LLMMetrics, TTSMetrics] {
@@ -190,5 +192,104 @@ describe("latency telemetry", () => {
       },
     ]);
     expect(containsString(snapshots)).toBe(false);
+  });
+
+  it("writes one numeric latency line per completed turn", () => {
+    const emitter = new EventEmitter();
+    const records: TurnLatencyRecord[] = [];
+    attachTelemetry(
+      emitter as unknown as voice.AgentSession,
+      {} as JobContext<undefined>,
+      { writeTurn: (record) => records.push(record), writeSummary: () => {} },
+    );
+
+    for (const metric of [...metrics("speech-1"), ...metrics("speech-2")]) {
+      emitter.emit(AgentSessionEventTypes.MetricsCollected, {
+        metrics: metric,
+      });
+    }
+
+    expect(records).toEqual([
+      {
+        turn: 1,
+        endOfUtteranceDelayMs: 400,
+        transcriptionDelayMs: 120,
+        llmTtftMs: 200,
+        ttsTtfbMs: 180,
+        totalMs: 900,
+      },
+      {
+        turn: 2,
+        endOfUtteranceDelayMs: 400,
+        transcriptionDelayMs: 120,
+        llmTtftMs: 200,
+        ttsTtfbMs: 180,
+        totalMs: 900,
+      },
+    ]);
+    expect(containsString(records)).toBe(false);
+  });
+
+  it("never observes transcript text unless logging is explicitly enabled", () => {
+    const emitter = new EventEmitter();
+    const transcripts: TranscriptRecord[] = [];
+    attachTelemetry(
+      emitter as unknown as voice.AgentSession,
+      {} as JobContext<undefined>,
+      {
+        writeTranscript: (record) => transcripts.push(record),
+        writeTurn: () => {},
+        writeSummary: () => {},
+      },
+    );
+
+    emitter.emit(AgentSessionEventTypes.UserInputTranscribed, {
+      transcript: "Guten Tag",
+      isFinal: true,
+      language: "de",
+    });
+    emitter.emit(AgentSessionEventTypes.ConversationItemAdded, {
+      item: { role: "assistant", textContent: "Hallo" },
+    });
+
+    expect(transcripts).toEqual([]);
+  });
+
+  it("records both chain stages when transcript logging is enabled", () => {
+    const emitter = new EventEmitter();
+    const transcripts: TranscriptRecord[] = [];
+    attachTelemetry(
+      emitter as unknown as voice.AgentSession,
+      {} as JobContext<undefined>,
+      {
+        logTranscripts: true,
+        writeTranscript: (record) => transcripts.push(record),
+        writeTurn: () => {},
+        writeSummary: () => {},
+      },
+    );
+
+    // Промежуточный результат STT в лог не идёт — иначе одна фраза попала бы туда десятки раз.
+    emitter.emit(AgentSessionEventTypes.UserInputTranscribed, {
+      transcript: "Guten",
+      isFinal: false,
+      language: "de",
+    });
+    emitter.emit(AgentSessionEventTypes.UserInputTranscribed, {
+      transcript: "Guten Tag",
+      isFinal: true,
+      language: "de",
+    });
+    emitter.emit(AgentSessionEventTypes.ConversationItemAdded, {
+      item: { role: "user", textContent: "Guten Tag" },
+    });
+    emitter.emit(AgentSessionEventTypes.ConversationItemAdded, {
+      item: { role: "assistant", textContent: "Hallo, wie kann ich helfen?" },
+    });
+
+    expect(transcripts).toEqual([
+      { stage: "stt", text: "Guten Tag", language: "de" },
+      { stage: "llm", text: "Hallo, wie kann ich helfen?" },
+    ]);
   });
 });
