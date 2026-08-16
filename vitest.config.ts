@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
@@ -19,6 +20,21 @@ export default defineConfig({
           fileParallelism: false,
           testTimeout: 20_000,
           hookTimeout: 60_000,
+        },
+      },
+      {
+        // Портал использует алиас `@/…`, как принято в Next.js.
+        resolve: {
+          alias: {
+            "@": fileURLToPath(new URL("./portal", import.meta.url)),
+          },
+        },
+        test: {
+          name: "portal",
+          setupFiles: ["portal/tests/setup.ts"],
+          include: ["portal/tests/**/*.test.ts"],
+          // bcrypt cost 12 намеренно медленный: пары сверок хватает, чтобы выйти за секунду.
+          testTimeout: 20_000,
         },
       },
     ],
