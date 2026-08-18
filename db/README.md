@@ -11,6 +11,29 @@ new one. Every new function must also receive an explicit `REVOKE`/`GRANT` in `r
 `DB_RESET_CONFIRM=1 pnpm db:reset`. The runner never loads `.env`; pass configuration through
 the process environment. Reset refuses non-loopback database hosts.
 
+`pnpm db:passwords` sets the `n8n_app` and `portal_app` passwords from the environment
+without touching the schema. It is the one db command that reads `.env`. Use it whenever a
+role password in the cluster drifts from what an application's connection string expects
+(`28P01`).
+
+**Roles are cluster-wide, not per-database.** `ALTER ROLE … PASSWORD` therefore affects
+every database at once. The test suite must never do it: `db/tests/global-setup.ts` calls
+`migrate(url, { syncRolePasswords: false })`, and `permissions.test.ts` switches identity
+with `SET LOCAL ROLE` inside a transaction instead of logging in with a password. Test runs
+leave the developer's working passwords alone.
+
+## Roles
+
+`roles.sql` is reapplied on every `pnpm db:migrate`, so grant changes need no migration.
+`portal_app` holds `SELECT/INSERT/UPDATE` on all tables plus `DELETE` on exactly three
+reference tables — `restaurant_tables`, `menu_categories`, `menu_items` — which the portal
+administrator edits. Operational tables hold personal data and are pruned only by
+`purge_expired_personal_data()`; the grant is deliberately kept out of
+`ALTER DEFAULT PRIVILEGES` so a future table cannot inherit it silently.
+
+Note for callers: `ON DELETE RESTRICT` raises SQLSTATE **23001** (`restrict_violation`),
+not 23503.
+
 ## Application errors
 
 | SQLSTATE | Message |

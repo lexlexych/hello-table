@@ -10,8 +10,19 @@ import {
 } from "./lib/apply.ts";
 import { resolveTarget, rolePasswords } from "./lib/config.ts";
 
+export interface MigrateOptions {
+  /**
+   * Выставлять ли ролям пароли из окружения. Роли в PostgreSQL живут в кластере, а не в
+   * базе, поэтому `ALTER ROLE ... PASSWORD` действует на все базы разом. Тесты, которые
+   * работают со своей базой в том же кластере, обязаны передавать `false`: иначе они
+   * перетирают рабочие пароли, и приложения перестают подключаться (28P01).
+   */
+  syncRolePasswords?: boolean;
+}
+
 export async function migrate(
   url = resolveTarget(process.argv.slice(2)).url,
+  options: MigrateOptions = {},
 ): Promise<void> {
   const sql = postgres(url, { max: 1 });
   let locked = false;
@@ -22,7 +33,9 @@ export async function migrate(
     const applied = await applyMigrations(sql, resolve("db/migrations"));
     await applyFunctions(sql, resolve("db/functions"));
     await applyRoles(sql, resolve("db/roles.sql"));
-    await setRolePasswords(sql, rolePasswords());
+    if (options.syncRolePasswords ?? true) {
+      await setRolePasswords(sql, rolePasswords());
+    }
     console.log(
       applied.length
         ? `Applied: ${applied.join(", ")}`

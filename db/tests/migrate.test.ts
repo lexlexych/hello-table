@@ -72,7 +72,9 @@ describe("полный цикл миграций на изолированной
   });
 
   it("применяет все миграции на чистой базе", async () => {
-    await migrate(scratchUrl);
+    // syncRolePasswords: false — роли общие на кластер, тест не трогает пароли
+    // рабочих ролей (см. db/README.md).
+    await migrate(scratchUrl, { syncRolePasswords: false });
     const rows = await sql<{ version: string }[]>`
       SELECT version FROM schema_migrations ORDER BY version`;
     expect(rows.map((r) => r.version)).toEqual(MIGRATIONS);
@@ -129,7 +131,7 @@ describe("полный цикл миграций на изолированной
     expect(versions.map((r) => r.version)).toEqual(MIGRATIONS.slice(0, 3));
 
     // и обратно: миграция накатывается повторно
-    await migrate(scratchUrl);
+    await migrate(scratchUrl, { syncRolePasswords: false });
     const [back] = await sql<{ n: number }[]>`
       SELECT count(*)::int AS n FROM information_schema.tables
       WHERE table_schema='public' AND table_name='reservations'`;

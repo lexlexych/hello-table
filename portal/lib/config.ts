@@ -8,6 +8,19 @@ const bcryptHash = z
   .string()
   .regex(/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/, "must be a bcrypt hash");
 
+/**
+ * Портал подключается ролью `portal_app` (PROJECT.md §5.3), а не владельцем схемы.
+ * Проверяем только схему URL: доступность базы выяснится при первом запросе, и падать
+ * на старте из-за поднимающегося контейнера смысла нет.
+ */
+const postgresUrl = z
+  .string()
+  .refine(
+    (value) =>
+      value.startsWith("postgres://") || value.startsWith("postgresql://"),
+    "must be a postgres:// connection string",
+  );
+
 export const configSchema = z.object({
   ADMIN_USERNAME: z.string().min(1),
   ADMIN_PASSWORD_HASH: bcryptHash,
@@ -19,6 +32,12 @@ export const configSchema = z.object({
   LIVEKIT_URL: z.url(),
   LIVEKIT_API_KEY: z.string().min(1),
   LIVEKIT_API_SECRET: z.string().min(1),
+
+  PORTAL_DATABASE_URL: postgresUrl,
+  // Схема мультиарендная: портал управляет ровно одним рестораном, и каким именно —
+  // задаётся явно, а не угадывается по «единственной строке в таблице».
+  // Формат совпадает с CHECK на restaurants.slug (миграция 002).
+  PORTAL_RESTAURANT_SLUG: z.string().regex(/^[a-z0-9-]{2,40}$/),
 
   // Локально портал работает по http, и с флагом Secure браузер cookie не сохранит.
   // За Caddy (итерация 12) значение обязано стать true.

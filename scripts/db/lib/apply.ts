@@ -136,10 +136,12 @@ export async function setRolePasswords(
     ["portal_app", passwords.portalApp],
   ] as const) {
     if (!value) {
+      // Раньше здесь стоял ALTER ROLE ... NOLOGIN. Это разрушительное действие на весь
+      // кластер из-за отсутствующей переменной окружения: одна забытая переменная гасила
+      // вход роли во всех базах. Роль без пароля и так не пройдёт аутентификацию.
       console.warn(
-        `Warning: ${role.toUpperCase()}_PASSWORD is unset; disabling ${role} login`,
+        `Warning: ${role.toUpperCase()}_PASSWORD is unset; leaving ${role} password unchanged`,
       );
-      await sql.unsafe(`ALTER ROLE ${role} NOLOGIN`);
       continue;
     }
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(value))

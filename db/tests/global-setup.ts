@@ -28,7 +28,10 @@ export default async function setup() {
   }
   u.pathname = "/restaurant_test";
   process.env.TEST_DATABASE_URL = u.toString();
-  process.env.N8N_APP_PASSWORD = "n8n_app_test_1234";
-  process.env.PORTAL_APP_PASSWORD = "portal_app_test_12";
-  await migrate(u.toString());
+
+  // `syncRolePasswords: false` — обязательно. Роли в PostgreSQL живут в кластере, а не в
+  // базе: `ALTER ROLE ... PASSWORD` из тестов перетирал бы рабочие пароли `n8n_app` и
+  // `portal_app`, и приложения переставали бы подключаться (28P01). Тесты прав вместо
+  // отдельного логина переключаются на роль через `SET LOCAL ROLE` — см. permissions.test.ts.
+  await migrate(u.toString(), { syncRolePasswords: false });
 }

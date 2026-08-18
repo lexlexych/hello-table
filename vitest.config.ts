@@ -13,10 +13,17 @@ export default defineConfig({
         },
       },
       {
+        // Репозитории портала лежат здесь же: базу пересоздаёт один global-setup,
+        // и второй проект с собственным setup сносил бы её из-под первого.
+        resolve: {
+          alias: {
+            "@": fileURLToPath(new URL("./portal", import.meta.url)),
+          },
+        },
         test: {
           name: "database",
           globalSetup: "db/tests/global-setup.ts",
-          include: ["db/tests/**/*.test.ts"],
+          include: ["db/tests/**/*.test.ts", "portal/tests/db/**/*.test.ts"],
           fileParallelism: false,
           testTimeout: 20_000,
           hookTimeout: 60_000,

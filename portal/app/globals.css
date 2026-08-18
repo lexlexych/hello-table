@@ -3,26 +3,48 @@
 
   --bg: #f6f6f4;
   --surface: #ffffff;
+  /* Второй уровень поверхности: шапки таблиц, полосы фильтров, невыделенные карточки. */
+  --surface-2: #f0efeb;
   --border: #d9d7d1;
   --text: #1c1b19;
   --muted: #6b675f;
   --accent: #2f5d50;
   --accent-text: #ffffff;
+  --accent-soft: #e3ede9;
   --danger: #a2331f;
+  --danger-soft: #f7e6e2;
+  --success: #2d6a4f;
+  --warn: #8a5a12;
   --agent: #2f5d50;
+  --overlay: rgb(28 27 25 / 45%);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-1: 0 1px 2px rgb(28 27 25 / 6%), 0 2px 8px rgb(28 27 25 / 4%);
+  --shadow-2: 0 8px 32px rgb(28 27 25 / 14%);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #17181a;
     --surface: #1f2124;
+    --surface-2: #26292d;
     --border: #34373b;
     --text: #ececea;
     --muted: #9a9a96;
     --accent: #6aa392;
     --accent-text: #10201b;
+    --accent-soft: #24352f;
     --danger: #e0785f;
+    --danger-soft: #3a2420;
+    --success: #7dbb9c;
+    --warn: #d9a441;
     --agent: #6aa392;
+    --overlay: rgb(0 0 0 / 60%);
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 30%), 0 2px 8px rgb(0 0 0 / 24%);
+    --shadow-2: 0 8px 32px rgb(0 0 0 / 45%);
   }
 }
 
@@ -44,11 +66,19 @@ body {
 button {
   font: inherit;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   padding: 0.6rem 1.1rem;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
 button:disabled {
@@ -62,14 +92,74 @@ button.primary {
   color: var(--accent-text);
 }
 
-input {
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Второстепенное действие: та же геометрия, но без рамки — не спорит с основной кнопкой. */
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  padding: 0.4rem 0.7rem;
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: transparent;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+input,
+select,
+textarea {
   font: inherit;
   width: 100%;
   padding: 0.6rem 0.7rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+/*
+ * Уважение к системной настройке «меньше движения». `!important` здесь по делу:
+ * правило обязано перебить любую анимацию ниже по файлу, иначе часть из них уцелеет.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: перебивает все анимации ниже по файлу */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: перебивает все анимации ниже по файлу */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: перебивает все переходы ниже по файлу */
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* --- Вход --- */
@@ -127,6 +217,9 @@ input {
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .shell-title {
@@ -160,16 +253,30 @@ input {
 
 .shell-nav {
   width: 220px;
+  flex: none;
   padding: 1rem 0.75rem;
   border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  position: sticky;
+  top: 3.25rem;
+  align-self: flex-start;
 }
 
 .shell-nav a {
   display: block;
   padding: 0.5rem 0.7rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.shell-nav a:hover {
+  background: var(--surface-2);
 }
 
 .shell-nav a[aria-current="page"] {
@@ -179,8 +286,33 @@ input {
 
 .shell-main {
   flex: 1;
+  min-width: 0;
   padding: 1.5rem;
-  max-width: 900px;
+  max-width: 1280px;
+}
+
+/* Узкий экран: боковое меню превращается в горизонтальную полосу над содержимым. */
+@media (max-width: 720px) {
+  .shell-body {
+    flex-direction: column;
+  }
+
+  .shell-nav {
+    width: auto;
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .shell-nav a {
+    white-space: nowrap;
+  }
+
+  .shell-main {
+    padding: 1rem;
+  }
 }
 
 /* --- Тестовый звонок --- */
@@ -240,4 +372,714 @@ input {
 .note {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+/* ===================================================================
+   Справочники: столики и меню
+   Общий слой для страниц со списком и формой-панелью.
+   =================================================================== */
+
+/* --- Шапка страницы --- */
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.page-head p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.page-head-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* --- Счётчики --- */
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.stat {
+  flex: 1 1 8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem;
+  box-shadow: var(--shadow-1);
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* --- Полоса фильтров --- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.toolbar .search {
+  flex: 1 1 16rem;
+  max-width: 22rem;
+}
+
+.toolbar-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.toolbar-check input {
+  width: auto;
+}
+
+.toolbar-count {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Плашка режима просмотра --- */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-size: 0.9rem;
+}
+
+/* --- Таблица --- */
+
+.table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  overflow: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.94rem;
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  text-align: left;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table .actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data-table .row-title {
+  font-weight: 600;
+}
+
+.data-table .row-sub {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Выключенная строка гасится, но остаётся читаемой. */
+.data-table tr.is-off td:not(.actions) {
+  opacity: 0.55;
+}
+
+/* --- Бейджи и чипы --- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.badge.on {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--success);
+}
+
+.badge.off {
+  color: var(--muted);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* Чип-переключатель: настоящий checkbox, спрятанный внутри label. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip:has(input:checked) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.chip:has(input:focus-visible) {
+  box-shadow: var(--ring);
+}
+
+.chip:has(input:disabled) {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.chip.static {
+  cursor: default;
+  color: var(--muted);
+}
+
+/* --- Тумблер --- */
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch-track {
+  flex: none;
+  width: 2.4rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  position: relative;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  transform: translateY(-50%);
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition: transform 150ms ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateY(-50%) translateX(1.02rem);
+}
+
+.switch input:focus-visible + .switch-track {
+  box-shadow: var(--ring);
+}
+
+.switch input:disabled + .switch-track {
+  opacity: 0.5;
+}
+
+.switch-label {
+  font-size: 0.92rem;
+}
+
+/* --- Пустое состояние --- */
+
+.empty-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state p {
+  margin: 0 0 0.9rem;
+}
+
+/* --- Боковая панель формы --- */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+  animation: fade-in 150ms ease;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  width: min(30rem, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  animation: slide-in 180ms ease;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.drawer-head button {
+  margin-left: auto;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.drawer-foot {
+  display: flex;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.drawer-foot .spacer {
+  flex: 1;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+}
+
+/* --- Поля формы --- */
+
+.field-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.field-row > * {
+  flex: 1;
+}
+
+.field-hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.field-group {
+  margin: 0 0 1.1rem;
+  padding: 0;
+  border: none;
+}
+
+.field-group legend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.switch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+/* --- Языковые табы --- */
+
+.lang-tabs {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  margin-bottom: 0.75rem;
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.lang-tabs button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lang-tabs button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+}
+
+/* --- Список тегов (синонимы) --- */
+
+.tag-input {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tag-input input {
+  flex: 1;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.tag button {
+  padding: 0 0.3rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  line-height: 1;
+  font-size: 1rem;
+}
+
+.tag button:hover {
+  color: var(--danger);
+}
+
+/* --- Сообщения --- */
+
+.form-note {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 50;
+  transform: translateX(-50%);
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-2);
+  animation: fade-in 150ms ease;
+}
+
+/* --- Двухколоночный экран меню --- */
+
+.menu-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 20rem) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.panel-head .spacer {
+  flex: 1;
+}
+
+.category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--radius-sm);
+  transition: background-color 150ms ease;
+}
+
+.category-item:hover {
+  background: var(--surface-2);
+}
+
+.category-item.is-selected {
+  background: var(--accent-soft);
+}
+
+.category-pick {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+}
+
+.category-name {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-meta {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.item-card-price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .menu-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Узкий экран: таблица превращается в карточки --- */
+
+@media (max-width: 720px) {
+  .table-wrap {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .data-table,
+  .data-table tbody,
+  .data-table tbody tr,
+  .data-table tbody td {
+    display: block;
+    width: 100%;
+  }
+
+  .data-table thead {
+    display: none;
+  }
+
+  .data-table tbody tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+    padding: 0.35rem 0.2rem;
+  }
+
+  /* `tbody td`, а не `td`: иначе правило `display: block` выше окажется специфичнее. */
+  .data-table tbody td {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: none;
+    padding: 0.35rem 0.75rem;
+    text-align: left;
+  }
+
+  /* Заголовок столбца переезжает в строку: без него карточка нечитаема. */
+  .data-table tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    width: 7rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
+  .data-table .num,
+  .data-table .actions {
+    text-align: left;
+  }
+
+  .drawer {
+    width: 100%;
+    border-left: none;
+  }
 }

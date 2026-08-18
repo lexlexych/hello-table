@@ -2,6 +2,12 @@ DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='n8n_app') THEN C
 DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO n8n_app, portal_app',current_database()); END $$;
 GRANT USAGE ON SCHEMA public TO n8n_app,portal_app; REVOKE CREATE ON SCHEMA public FROM PUBLIC; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM n8n_app;
 GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA public TO portal_app; REVOKE ALL ON TABLE schema_migrations FROM portal_app;
+-- DELETE выдаётся точечно и только на справочники, которыми администратор управляет из портала.
+-- Операционные таблицы (брони, заказы, обратные звонки, журнал звонков) содержат персональные
+-- данные: они удаляются только purge_expired_personal_data(), поэтому DELETE на них нет ни у кого,
+-- кроме владельца схемы. По той же причине право не попадает в ALTER DEFAULT PRIVILEGES ниже —
+-- иначе будущая таблица с персональными данными получила бы его молча.
+GRANT DELETE ON TABLE restaurant_tables, menu_categories, menu_items TO portal_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public GRANT SELECT,INSERT,UPDATE ON TABLES TO portal_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;

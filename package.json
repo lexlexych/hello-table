@@ -21,6 +21,7 @@
     "db:up": "docker compose -f deploy/docker-compose.dev.yml up -d postgres",
     "db:down": "docker compose -f deploy/docker-compose.dev.yml stop postgres",
     "db:migrate": "node scripts/db/migrate.ts",
+    "db:passwords": "node --env-file-if-exists=.env scripts/db/passwords.ts",
     "db:rollback": "node scripts/db/rollback.ts",
     "db:seed": "node scripts/db/seed.ts",
     "db:reset": "node scripts/db/reset.ts",

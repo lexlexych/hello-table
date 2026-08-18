@@ -11,6 +11,8 @@ const secretNames = [
   "LIVEKIT_URL",
   "MISTRAL_API_KEY",
   "ELEVENLABS_API_KEY",
+  "PORTAL_DATABASE_URL",
+  "PORTAL_RESTAURANT_SLUG",
 ];
 
 for (const name of secretNames) {

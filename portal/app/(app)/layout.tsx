@@ -1,11 +1,12 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/logout-button";
+import { NavLink } from "@/components/nav-link";
 import { requireSessionForPage } from "@/lib/rbac";
 
 /**
- * Оболочка портала. Меню состоит из одного пункта: остальные разделы §7.3 приходят
- * в итерациях 9–10, а заглушек проект не заводит (PROJECT.md §0.2).
+ * Оболочка портала. Разделы §7.3 появляются по мере реализации; заглушек проект
+ * не заводит (PROJECT.md §0.2). Справочники видны обеим ролям — оператор читает их,
+ * чтобы отвечать гостю по телефону (§7.2).
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireSessionForPage();
@@ -23,10 +24,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </header>
       <div className="shell-body">
         <nav className="shell-nav">
-          {/* Пока раздел один, он же всегда текущий. */}
-          <Link href="/test-call" aria-current="page">
-            Тестовый звонок
-          </Link>
+          <NavLink href="/test-call">Тестовый звонок</NavLink>
+          <NavLink href="/tables">Столики</NavLink>
+          <NavLink href="/menu">Меню</NavLink>
         </nav>
         <main className="shell-main">{children}</main>
       </div>

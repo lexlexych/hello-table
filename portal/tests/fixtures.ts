@@ -15,6 +15,8 @@ export interface TestEnv {
   LIVEKIT_URL: string;
   LIVEKIT_API_KEY: string;
   LIVEKIT_API_SECRET: string;
+  PORTAL_DATABASE_URL: string;
+  PORTAL_RESTAURANT_SLUG: string;
 }
 
 let cached: TestEnv | undefined;
@@ -30,6 +32,10 @@ export async function testEnv(): Promise<TestEnv> {
     LIVEKIT_URL: "ws://localhost:7880",
     LIVEKIT_API_KEY: "test-key",
     LIVEKIT_API_SECRET: "test-secret-value-for-token-signing",
+    // Адрес заведомо никуда не ведёт: в проекте `portal` соединение с базой замокано,
+    // а конфигурация всё равно обязана пройти валидацию.
+    PORTAL_DATABASE_URL: "postgres://portal_app:none@127.0.0.1:1/nowhere",
+    PORTAL_RESTAURANT_SLUG: "test-restaurant",
   };
   return cached;
 }
