@@ -90,13 +90,18 @@ export function buildStt(cfg: Config): elevenlabs.STT {
   return new elevenlabs.STT(sttOptions);
 }
 
-/** Синтез речи на стартовом языке; дальше язык и голос меняет `TTS.updateOptions`. */
+/**
+ * Синтез речи мультиязычной моделью ElevenLabs.
+ *
+ * Язык намеренно не задаётся: модель определяет его по тексту ответа GPT. Иначе пустой
+ * `language` от STT оставлял TTS в стартовом русском режиме даже для немецкого ответа.
+ * Аргумент `language` нужен только для выбора голосового профиля.
+ */
 export function buildTts(cfg: Config, language: Language): elevenlabs.TTS {
   const ttsOptions: elevenlabs.TTSOptions = {
     apiKey: cfg.ELEVENLABS_API_KEY,
     voiceId: voiceIdFor(cfg, language),
     model: cfg.ELEVENLABS_MODEL,
-    language,
     enableLogging: false,
   };
   if (cfg.ELEVENLABS_BASE_URL !== undefined) {
@@ -216,17 +221,6 @@ export async function loadAllPhrases(
   const loaded = await Promise.all(
     languages.map(
       async (language) => [language, await loadPhrases(language)] as const,
-    ),
-  );
-  return Object.fromEntries(loaded);
-}
-
-export async function loadAllPrompts(
-  languages: readonly Language[],
-): Promise<Partial<Record<Language, string>>> {
-  const loaded = await Promise.all(
-    languages.map(
-      async (language) => [language, await loadSystemPrompt(language)] as const,
     ),
   );
   return Object.fromEntries(loaded);

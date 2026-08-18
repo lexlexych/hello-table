@@ -15,7 +15,7 @@ import {
   buildTts,
   createRestaurantAgent,
   loadAllPhrases,
-  loadAllPrompts,
+  loadSystemPrompt,
   resourceFor,
   type SessionLanguageState,
   voiceIdFor,
@@ -55,9 +55,12 @@ export function createAgent(config: Config) {
       });
       // Ресурсы всех включённых языков грузятся один раз здесь: переключение посреди
       // разговора не должно ждать чтения файлов.
-      const [phrasesByLanguage, promptsByLanguage] = await Promise.all([
+      const [phrasesByLanguage, multilingualPrompt] = await Promise.all([
         loadAllPhrases(config.AGENT_ENABLED_LANGUAGES),
-        loadAllPrompts(config.AGENT_ENABLED_LANGUAGES),
+        // Один канонический промпт для LLM: язык ответа определяется репликой гостя,
+        // а не состоянием STT/TTS. Английская версия используется только как язык
+        // инструкций модели и не задаёт язык её ответа.
+        loadSystemPrompt("en"),
       ]);
 
       const state: SessionLanguageState = {
@@ -88,21 +91,9 @@ export function createAgent(config: Config) {
       // Инструменты строятся после сессии: филлер-фразу произносит она же через
       // ctx.session внутри инструмента. Пул agent_app разделяется сессиями job-процесса.
       const tools = buildTools(config, state, database);
-      const agent = createRestaurantAgent(
-        resourceFor(promptsByLanguage, state.language),
-        tools,
-      );
+      const agent = createRestaurantAgent(multilingualPrompt, tools);
 
-      /**
-       * Переключение языка (PROJECT.md §4.1).
-       *
-       * Подписка именно на `UserInputTranscribed`, а не на хук `Agent.onUserTurnCompleted`:
-       * в @livekit/agents 1.6.4 копия контекста для ответа снимается ДО вызова хука, поэтому
-       * заменённые в хуке инструкции подействовали бы только со следующей реплики — агент
-       * ответил бы на смену языка ещё на старом. Это событие приходит раньше фиксации хода,
-       * а `updateInstructions` правит контекст синхронно, так что новый промпт успевает в
-       * ответ на ту же самую реплику.
-       */
+      /** Переключение фиксированных i18n-ресурсов и голосового профиля (§4.1). */
       session.on(AgentSessionEventTypes.UserInputTranscribed, (event) => {
         if (!event.isFinal) {
           return;
@@ -114,12 +105,7 @@ export function createAgent(config: Config) {
 
         state.language = language;
         state.phrases = resourceFor(phrasesByLanguage, language);
-        tts.updateOptions({ language, voiceId: voiceIdFor(config, language) });
-        void agent
-          .updateInstructions(resourceFor(promptsByLanguage, language))
-          .catch((error: unknown) => {
-            log().error({ error }, "agent_language_prompt_update_failed");
-          });
+        tts.updateOptions({ voiceId: voiceIdFor(config, language) });
         // В лог уходит только код языка: транскрипты логировать запрещено (§0.4).
         log().info({ language }, "agent_language_switched");
       });
