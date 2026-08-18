@@ -5,7 +5,7 @@ import { testDatabaseUrl } from "./helpers/db.ts";
 const sql = postgres(testDatabaseUrl());
 afterAll(() => sql.end());
 describe("database functions", () => {
-  it("installs all eight public RPC functions", async () => {
+  it("installs every public RPC function", async () => {
     const rows = await sql<
       { proname: string }[]
     >`SELECT DISTINCT proname FROM pg_proc JOIN pg_namespace n ON n.oid=pronamespace WHERE n.nspname='public'`;
@@ -19,6 +19,8 @@ describe("database functions", () => {
       "create_pickup_order_atomic",
       "create_callback_request",
       "purge_expired_personal_data",
+      "book_table_for_day",
+      "cancel_table_booking",
     ])
       expect(names).toContain(name);
   });

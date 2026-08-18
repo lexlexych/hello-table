@@ -5,12 +5,16 @@ import { type FormEvent, useMemo, useState } from "react";
 import { Drawer } from "@/components/ui/drawer";
 import { Toggle } from "@/components/ui/toggle";
 import { apiSend } from "@/lib/client-api";
-import type { RestaurantTable } from "@/lib/tables";
+import { formatDayFull, formatDayLabel, isPastDay } from "@/lib/day";
+import type { RestaurantTableForDay } from "@/lib/tables";
 
 /**
  * Экран столиков. Данные приходят с сервера пропсом; после каждой удачной записи
  * вызывается `router.refresh()`, и серверный компонент перечитывает список — своей
  * копии состояния список не держит и рассинхронизироваться с базой не может.
+ *
+ * Выбранный день живёт в адресной строке, а не в состоянии: так ссылку на день можно
+ * переслать, а перезагрузка страницы не сбрасывает выбор.
  */
 
 const MESSAGES: Record<string, string> = {
@@ -23,6 +27,10 @@ const MESSAGES: Record<string, string> = {
   forbidden: "Изменения доступны только администратору.",
   unauthorized: "Сессия истекла. Войдите заново.",
   network: "Сервер недоступен. Проверьте соединение.",
+  table_already_booked:
+    "Столик на этот день уже забронирован. Обновите страницу.",
+  table_not_available: "Столик недоступен: он выключен или уже удалён.",
+  slot_in_past: "Этот день уже прошёл — бронировать нельзя.",
 };
 
 interface Draft {
@@ -43,7 +51,7 @@ const EMPTY: Draft = {
   combinable: false,
 };
 
-function toDraft(table: RestaurantTable): Draft {
+function toDraft(table: RestaurantTableForDay): Draft {
   return {
     id: table.id,
     label: table.label,
@@ -54,20 +62,43 @@ function toDraft(table: RestaurantTable): Draft {
   };
 }
 
+/** Черновик брони: столик уже выбран, оператор задаёт время и гостя. */
+interface BookingDraft {
+  tableId: string;
+  tableLabel: string;
+  time: string;
+  guestName: string;
+  partySize: string;
+}
+
 export function TablesManager({
   tables,
+  date,
+  today,
+  quickDays,
   canEdit,
 }: {
-  tables: RestaurantTable[];
+  tables: RestaurantTableForDay[];
+  date: string;
+  today: string;
+  quickDays: string[];
   canEdit: boolean;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | undefined>(undefined);
+  const [booking, setBooking] = useState<BookingDraft | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [activeOnly, setActiveOnly] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [bookingError, setBookingError] = useState<string | undefined>(
+    undefined,
+  );
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | undefined>(undefined);
+
+  // Прошедший день бронировать нельзя (это же правило держит `book_table_for_day`),
+  // но смотреть — можно: так виден вчерашний зал.
+  const dayIsPast = isPastDay(date, today);
 
   const zones = useMemo(
     () => [...new Set(tables.map((table) => table.zone).filter(Boolean))],
@@ -92,11 +123,16 @@ export function TablesManager({
   const seatsTotal = tables
     .filter((table) => table.isActive)
     .reduce((sum, table) => sum + table.seats, 0);
+  const bookedCount = tables.filter((table) => table.bookedFrom).length;
 
   function show(message: string) {
     setToast(message);
     // Всплывающее сообщение живёт три секунды: оно подтверждает, а не информирует.
     setTimeout(() => setToast(undefined), 3000);
+  }
+
+  function goToDay(day: string) {
+    router.push(`/tables?date=${day}`);
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -140,7 +176,7 @@ export function TablesManager({
     router.refresh();
   }
 
-  async function remove(table: RestaurantTable) {
+  async function remove(table: RestaurantTableForDay) {
     if (
       !window.confirm(
         `Удалить столик ${table.label}? Действие необратимо. Если он участвовал в бронях, база не даст его удалить — тогда выключите столик.`,
@@ -158,14 +194,117 @@ export function TablesManager({
     router.refresh();
   }
 
+  async function submitBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!booking) {
+      return;
+    }
+
+    const partySize = Number(booking.partySize);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(booking.time)) {
+      setBookingError("Укажите время в формате ЧЧ:ММ.");
+      return;
+    }
+    if (!booking.guestName.trim()) {
+      setBookingError("Укажите имя гостя.");
+      return;
+    }
+    if (!Number.isInteger(partySize) || partySize < 1 || partySize > 100) {
+      setBookingError("Число гостей — целое от 1 до 100.");
+      return;
+    }
+
+    setBusy(true);
+    setBookingError(undefined);
+
+    const result = await apiSend(
+      `/api/tables/${booking.tableId}/booking`,
+      "POST",
+      {
+        date,
+        time: booking.time,
+        guestName: booking.guestName,
+        partySize,
+      },
+    );
+
+    setBusy(false);
+    if (!result.ok) {
+      setBookingError(
+        MESSAGES[result.failure.code] ?? "Не удалось забронировать.",
+      );
+      return;
+    }
+
+    const label = booking.tableLabel;
+    const time = booking.time;
+    setBooking(undefined);
+    show(`Столик ${label} забронирован с ${time}`);
+    router.refresh();
+  }
+
+  async function cancelBooking(table: RestaurantTableForDay) {
+    if (
+      !window.confirm(
+        `Снять бронь со столика ${table.label} на ${formatDayFull(date)}?`,
+      )
+    ) {
+      return;
+    }
+
+    const result = await apiSend(
+      `/api/tables/${table.id}/booking?date=${date}`,
+      "DELETE",
+    );
+    if (!result.ok) {
+      show(
+        result.failure.code === "not_found"
+          ? "Брони уже нет. Обновите страницу."
+          : (MESSAGES[result.failure.code] ?? "Не удалось снять бронь."),
+      );
+      return;
+    }
+    show(`Бронь столика ${table.label} снята`);
+    router.refresh();
+  }
+
   return (
     <>
+      <div className="day-bar">
+        <span className="day-bar-label">День</span>
+        <div className="day-chips">
+          {quickDays.map((day) => (
+            <button
+              key={day}
+              type="button"
+              className={day === date ? "day-chip is-current" : "day-chip"}
+              aria-current={day === date ? "date" : undefined}
+              onClick={() => goToDay(day)}
+            >
+              {formatDayLabel(day, today)}
+            </button>
+          ))}
+        </div>
+        <label className="day-pick">
+          <span>Другой день</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              if (value) {
+                goToDay(value);
+              }
+            }}
+          />
+        </label>
+      </div>
+
       <div className="page-head">
         <div>
           <h1>Столики</h1>
           <p>
-            Зал ресторана: метки, вместимость и зоны для подбора при
-            бронировании.
+            Зал на {formatDayFull(date)}: метки, вместимость и брони этого дня.
           </p>
         </div>
         {canEdit ? (
@@ -184,10 +323,16 @@ export function TablesManager({
         ) : null}
       </div>
 
+      {dayIsPast ? (
+        <p className="notice">
+          Этот день уже прошёл: брони показаны для справки, менять их нельзя.
+        </p>
+      ) : null}
+
       {canEdit ? null : (
         <p className="notice">
-          Режим просмотра: добавлять, изменять и удалять столики может только
-          администратор.
+          Бронировать и снимать брони может и оператор. Добавлять, изменять и
+          удалять сами столики — только администратор.
         </p>
       )}
 
@@ -201,6 +346,10 @@ export function TablesManager({
             {tables.filter((table) => table.isActive).length}
           </span>
           <span className="stat-label">активных</span>
+        </div>
+        <div className="stat">
+          <span className="stat-value">{bookedCount}</span>
+          <span className="stat-label">забронировано</span>
         </div>
         <div className="stat">
           <span className="stat-value">{seatsTotal}</span>
@@ -249,8 +398,9 @@ export function TablesManager({
                 <th>Зона</th>
                 <th className="num">Мест</th>
                 <th>Свойства</th>
+                <th>Бронь с</th>
                 <th>Статус</th>
-                {canEdit ? <th className="actions">Действия</th> : null}
+                <th className="actions">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -270,40 +420,162 @@ export function TablesManager({
                       <span className="badge off">отдельный</span>
                     )}
                   </td>
-                  <td data-label="Статус">
-                    {table.isActive ? (
-                      <span className="badge on">активен</span>
+                  <td data-label="Бронь с">
+                    {table.bookedFrom ? (
+                      <>
+                        <span className="row-title">{table.bookedFrom}</span>
+                        <span className="row-sub">
+                          {table.bookedGuestName}, {table.bookedPartySize} чел.
+                        </span>
+                      </>
                     ) : (
-                      <span className="badge off">выключен</span>
+                      "—"
                     )}
                   </td>
-                  {canEdit ? (
-                    <td data-label="Действия" className="actions">
+                  <td data-label="Статус">
+                    {!table.isActive ? (
+                      <span className="badge off">выключен</span>
+                    ) : table.bookedFrom ? (
+                      <span className="badge busy">забронирован</span>
+                    ) : (
+                      <span className="badge on">свободен</span>
+                    )}
+                  </td>
+                  <td data-label="Действия" className="actions">
+                    {dayIsPast || !table.isActive ? null : table.bookedFrom ? (
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => cancelBooking(table)}
+                      >
+                        Снять бронь
+                      </button>
+                    ) : (
                       <button
                         type="button"
                         className="ghost"
                         onClick={() => {
-                          setError(undefined);
-                          setDraft(toDraft(table));
+                          setBookingError(undefined);
+                          setBooking({
+                            tableId: table.id,
+                            tableLabel: table.label,
+                            time: "",
+                            guestName: "",
+                            partySize: String(table.seats),
+                          });
                         }}
                       >
-                        Изменить
+                        Забронировать
                       </button>
-                      <button
-                        type="button"
-                        className="ghost danger"
-                        onClick={() => remove(table)}
-                      >
-                        Удалить
-                      </button>
-                    </td>
-                  ) : null}
+                    )}
+                    {canEdit ? (
+                      <>
+                        <button
+                          type="button"
+                          className="ghost"
+                          onClick={() => {
+                            setError(undefined);
+                            setDraft(toDraft(table));
+                          }}
+                        >
+                          Изменить
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost danger"
+                          onClick={() => remove(table)}
+                        >
+                          Удалить
+                        </button>
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {booking ? (
+        <Drawer
+          title={`Бронь столика ${booking.tableLabel}`}
+          onClose={() => setBooking(undefined)}
+          footer={
+            <>
+              <button
+                type="submit"
+                form="booking-form"
+                className="primary"
+                disabled={busy}
+              >
+                {busy ? "Бронирую…" : "Забронировать"}
+              </button>
+              <button type="button" onClick={() => setBooking(undefined)}>
+                Отмена
+              </button>
+            </>
+          }
+        >
+          <form id="booking-form" onSubmit={submitBooking}>
+            {bookingError ? <p className="form-note">{bookingError}</p> : null}
+
+            <div className="field-row">
+              <label className="field">
+                <span>Время</span>
+                <input
+                  type="time"
+                  value={booking.time}
+                  onChange={(event) =>
+                    setBooking({
+                      ...booking,
+                      time: event.currentTarget.value,
+                    })
+                  }
+                  required
+                />
+              </label>
+              <label className="field">
+                <span>Гостей</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={booking.partySize}
+                  onChange={(event) =>
+                    setBooking({
+                      ...booking,
+                      partySize: event.currentTarget.value,
+                    })
+                  }
+                  required
+                />
+              </label>
+            </div>
+
+            <label className="field">
+              <span>Имя гостя</span>
+              <input
+                value={booking.guestName}
+                onChange={(event) =>
+                  setBooking({
+                    ...booking,
+                    guestName: event.currentTarget.value,
+                  })
+                }
+                maxLength={120}
+                required
+              />
+            </label>
+
+            <p className="field-hint">
+              {formatDayFull(date)}: столик будет занят с указанного времени и
+              до конца дня. Голосовой агент этот столик гостям больше не
+              предложит.
+            </p>
+          </form>
+        </Drawer>
+      ) : null}
 
       {draft ? (
         <Drawer

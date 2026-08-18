@@ -2,9 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import type postgres from "postgres";
 import type { z } from "zod";
 import { db } from "./db";
-import { toDbErrorCode } from "./db-errors";
+import { toAppErrorCode, toDbErrorCode } from "./db-errors";
 import { guardRequest } from "./rbac";
 import { getRestaurantId } from "./restaurant";
+import type { PortalRole } from "./session";
 
 /**
  * Общая обвязка маршрутов записи справочников. Все они устроены одинаково:
@@ -19,11 +20,12 @@ export interface WriteContext {
   restaurantId: string;
 }
 
-/** Роль администратора для всех маршрутов записи; ответ уже готов, если доступа нет. */
-export async function requireAdmin(
+/** Проверка роли для маршрута записи; ответ уже готов, если доступа нет. */
+export async function requireRole(
   request: NextRequest,
+  roles: readonly PortalRole[],
 ): Promise<NextResponse | undefined> {
-  const guard = await guardRequest(request, ["admin"]);
+  const guard = await guardRequest(request, roles);
   if (guard.ok) {
     return undefined;
   }
@@ -31,6 +33,13 @@ export async function requireAdmin(
     { error: guard.status === 401 ? "unauthorized" : "forbidden" },
     { status: guard.status },
   );
+}
+
+/** Справочники (столики, меню) правит только администратор — PROJECT.md §7.2. */
+export async function requireAdmin(
+  request: NextRequest,
+): Promise<NextResponse | undefined> {
+  return requireRole(request, ["admin"]);
 }
 
 export type Parsed<T> =
@@ -100,4 +109,20 @@ export function dbFailure(error: unknown): NextResponse {
   // в логах сервера. Наружу уходит только «internal_error», без текста Postgres.
   console.error("portal: неожиданная ошибка базы", error);
   return NextResponse.json({ error: "internal_error" }, { status: 500 });
+}
+
+/**
+ * Отказ доменной функции Postgres. `table_already_booked` — конфликт состояния (409):
+ * запрос был корректен, просто столик успели занять. Остальное клиент прислал сам,
+ * поэтому 400. Всё, что не доменное, уходит в `dbFailure` и может стать 500.
+ */
+export function appFailure(error: unknown): NextResponse {
+  const code = toAppErrorCode(error);
+  if (code === "table_already_booked") {
+    return NextResponse.json({ error: code }, { status: 409 });
+  }
+  if (code) {
+    return NextResponse.json({ error: code }, { status: 400 });
+  }
+  return dbFailure(error);
 }

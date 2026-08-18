@@ -8,7 +8,7 @@ import {
   menuItemInputSchema,
   parseEuros,
 } from "@/lib/schemas/menu";
-import { tableInputSchema } from "@/lib/schemas/tables";
+import { tableBookingSchema, tableInputSchema } from "@/lib/schemas/tables";
 
 /**
  * Схемы форм повторяют CHECK из миграций 002 и 003. Тест сторожит именно это
@@ -74,6 +74,62 @@ describe("схема столика", () => {
     expect(tableInputSchema.parse({ ...VALID_TABLE, zone: "  " }).zone).toBe(
       null,
     );
+  });
+});
+
+describe("схема дневной брони", () => {
+  const VALID_BOOKING = {
+    date: "2026-08-22",
+    time: "18:30",
+    guestName: "Frau Meier",
+    partySize: 4,
+  };
+
+  it("принимает корректную бронь", () => {
+    expect(tableBookingSchema.parse(VALID_BOOKING)).toMatchObject({
+      date: "2026-08-22",
+      time: "18:30",
+      partySize: 4,
+    });
+  });
+
+  it("отвергает время и дату не того формата", () => {
+    for (const time of ["", "7:30", "24:00", "18:60", "18:30:00", "вечер"]) {
+      expect(
+        tableBookingSchema.safeParse({ ...VALID_BOOKING, time }).success,
+      ).toBe(false);
+    }
+    for (const date of ["", "22.08.2026", "2026-8-22", "завтра"]) {
+      expect(
+        tableBookingSchema.safeParse({ ...VALID_BOOKING, date }).success,
+      ).toBe(false);
+    }
+    expect(
+      tableBookingSchema.safeParse({ ...VALID_BOOKING, time: "00:00" }).success,
+    ).toBe(true);
+  });
+
+  it("обрезает пробелы в имени гостя и отвергает пустое", () => {
+    expect(
+      tableBookingSchema.parse({ ...VALID_BOOKING, guestName: "  Meier " })
+        .guestName,
+    ).toBe("Meier");
+    expect(
+      tableBookingSchema.safeParse({ ...VALID_BOOKING, guestName: "   " })
+        .success,
+    ).toBe(false);
+  });
+
+  it("держит число гостей в границах CHECK(party_size BETWEEN 1 AND 100)", () => {
+    for (const partySize of [0, 101, 2.5]) {
+      expect(
+        tableBookingSchema.safeParse({ ...VALID_BOOKING, partySize }).success,
+      ).toBe(false);
+    }
+    // max_party_size (по умолчанию 8) здесь намеренно не действует: столик выбрал человек.
+    expect(
+      tableBookingSchema.safeParse({ ...VALID_BOOKING, partySize: 12 }).success,
+    ).toBe(true);
   });
 });
 

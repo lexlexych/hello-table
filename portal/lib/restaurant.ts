@@ -4,22 +4,30 @@ import { db } from "./db";
 
 /**
  * Ресторан, которым управляет этот экземпляр портала. Слаг задан конфигурацией
- * (`PORTAL_RESTAURANT_SLUG`), id разрешается один раз на процесс: строка `restaurants`
+ * (`PORTAL_RESTAURANT_SLUG`), строка разрешается один раз на процесс: `restaurants`
  * не переименовывается на ходу, а лишний запрос на каждый рендер не нужен.
+ *
+ * Таймзона нужна экранам, которые работают с календарными днями: «сегодня» считается
+ * по времени ресторана, а не по времени сервера (`portal/lib/day.ts`).
  */
 
-let cached: string | undefined;
+export interface PortalRestaurant {
+  id: string;
+  timezone: string;
+}
 
-export async function getRestaurantId(
+let cached: PortalRestaurant | undefined;
+
+export async function getRestaurant(
   sql: postgres.Sql = db(),
-): Promise<string> {
+): Promise<PortalRestaurant> {
   if (cached) {
     return cached;
   }
 
   const slug = getConfig().PORTAL_RESTAURANT_SLUG;
-  const [row] = await sql<{ id: string }[]>`
-    SELECT id FROM restaurants WHERE slug = ${slug} AND is_active`.catch(
+  const [row] = await sql<PortalRestaurant[]>`
+    SELECT id, timezone FROM restaurants WHERE slug = ${slug} AND is_active`.catch(
     (error: unknown) => {
       // 28P01 означает, что пароль роли в базе разошёлся с `PORTAL_DATABASE_URL`.
       // Подсказка здесь потому, что сообщение Postgres само по себе не говорит, что делать.
@@ -45,11 +53,18 @@ export async function getRestaurantId(
     );
   }
 
-  cached = row.id;
+  cached = row;
   return cached;
 }
 
-/** Для тестов: сбрасывает запомненный id, чтобы соседние наборы не мешали друг другу. */
+/** Подавляющему большинству вызывающих нужен только id. */
+export async function getRestaurantId(
+  sql: postgres.Sql = db(),
+): Promise<string> {
+  return (await getRestaurant(sql)).id;
+}
+
+/** Для тестов: сбрасывает запомненную строку, чтобы соседние наборы не мешали друг другу. */
 export function resetRestaurantCache(): void {
   cached = undefined;
 }

@@ -1,9 +1,12 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  bookTableForDay,
+  cancelTableBooking,
   createTable,
   deleteTable,
-  listTables,
+  listTablesForDay,
+  type RestaurantTableForDay,
   updateTable,
 } from "@/lib/tables";
 // Без расширения `.ts`: файл проверяется конфигурацией портала
@@ -14,12 +17,17 @@ import {
   createRestaurant,
   dropRestaurant,
   futureAt,
+  isoDate,
   openAllWeek,
 } from "../../../db/tests/helpers/fixtures";
 
 /**
  * Репозиторий столиков против настоящего Postgres. Проверяется то, чего не видно
- * на моках: изоляция по ресторану и поведение внешних ключей.
+ * на моках: изоляция по ресторану, поведение внешних ключей и брони на день.
+ *
+ * Фикстура ресторана живёт в таймзоне UTC, поэтому календарный день ресторана
+ * совпадает с датой в ISO-строке — арифметику часовых поясов проверяет
+ * `db/tests/book-table.test.ts` на ресторане в Europe/Berlin.
  */
 
 const sql = postgres(testDatabaseUrl(), { max: 2 });
@@ -47,6 +55,20 @@ const INPUT = {
   combinable: false,
 };
 
+/** День со сдвигом вперёд — тот же, что видит база в таймзоне UTC. */
+function day(daysAhead: number): string {
+  return isoDate(futureAt(daysAhead, 12));
+}
+
+async function findRow(
+  restaurant: string,
+  date: string,
+  id: string,
+): Promise<RestaurantTableForDay | undefined> {
+  const rows = await listTablesForDay(sql, restaurant, date);
+  return rows.find((row) => row.id === id);
+}
+
 describe("репозиторий столиков", () => {
   it("создаёт, читает и меняет столик", async () => {
     const created = await createTable(sql, restaurantId, {
@@ -68,8 +90,7 @@ describe("репозиторий столиков", () => {
     });
     expect(updated).toMatchObject({ seats: 6, zone: null, isActive: false });
 
-    const list = await listTables(sql, restaurantId);
-    expect(list.map((row) => row.id)).toContain(created.id);
+    expect(await findRow(restaurantId, day(1), created.id)).toBeDefined();
 
     expect(await deleteTable(sql, restaurantId, created.id)).toBe(true);
     expect(await deleteTable(sql, restaurantId, created.id)).toBe(false);
@@ -86,11 +107,8 @@ describe("репозиторий столиков", () => {
         zone: "Hauptraum",
       });
 
-      expect((await listTables(sql, local)).map((row) => row.label)).toEqual([
-        "C",
-        "A",
-        "B",
-      ]);
+      const rows = await listTablesForDay(sql, local, day(1));
+      expect(rows.map((row) => row.label)).toEqual(["C", "A", "B"]);
     } finally {
       await dropRestaurant(sql, local);
     }
@@ -108,10 +126,7 @@ describe("репозиторий столиков", () => {
       expect(await deleteTable(sql, otherId, mine.id)).toBe(false);
 
       // Столик остался нетронутым.
-      const [row] = await listTables(sql, restaurantId).then((rows) =>
-        rows.filter((table) => table.id === mine.id),
-      );
-      expect(row?.seats).toBe(4);
+      expect((await findRow(restaurantId, day(1), mine.id))?.seats).toBe(4);
     } finally {
       await deleteTable(sql, restaurantId, mine.id);
     }
@@ -165,8 +180,139 @@ describe("репозиторий столиков", () => {
   it("оставляет seed-фикстуры соседних тестов в покое", async () => {
     // Фикстура addTable кладёт столик мимо репозитория — репозиторий обязан его видеть.
     await addTable(sql, otherId, "R-fixture", 2);
-    expect(
-      (await listTables(sql, otherId)).some((row) => row.label === "R-fixture"),
-    ).toBe(true);
+    const rows = await listTablesForDay(sql, otherId, day(1));
+    expect(rows.some((row) => row.label === "R-fixture")).toBe(true);
+  });
+});
+
+describe("дневная бронь столика", () => {
+  it("бронирует столик и показывает бронь в списке этого дня", async () => {
+    const table = await createTable(sql, restaurantId, {
+      ...INPUT,
+      label: "R-book",
+    });
+    const date = day(4);
+
+    const booking = await bookTableForDay(sql, restaurantId, table.id, {
+      date,
+      time: "18:30",
+      guestName: "Frau Meier",
+      partySize: 3,
+    });
+    expect(booking).toMatchObject({
+      tableLabel: "R-book",
+      bookedFrom: "18:30",
+    });
+
+    expect(await findRow(restaurantId, date, table.id)).toMatchObject({
+      bookedFrom: "18:30",
+      bookedGuestName: "Frau Meier",
+      bookedPartySize: 3,
+    });
+  });
+
+  it("не показывает бронь в соседние дни", async () => {
+    const table = await createTable(sql, restaurantId, {
+      ...INPUT,
+      label: "R-book-day",
+    });
+    const date = day(5);
+    await bookTableForDay(sql, restaurantId, table.id, {
+      date,
+      time: "12:00",
+      guestName: "Gast",
+      partySize: 2,
+    });
+
+    for (const other of [day(4), day(6)]) {
+      expect(await findRow(restaurantId, other, table.id)).toMatchObject({
+        bookedFrom: null,
+        bookedGuestName: null,
+        bookedPartySize: null,
+      });
+    }
+  });
+
+  it("снимает бронь и освобождает день", async () => {
+    const table = await createTable(sql, restaurantId, {
+      ...INPUT,
+      label: "R-book-cancel",
+    });
+    const date = day(7);
+    await bookTableForDay(sql, restaurantId, table.id, {
+      date,
+      time: "17:00",
+      guestName: "Gast",
+      partySize: 2,
+    });
+
+    expect(await cancelTableBooking(sql, restaurantId, table.id, date)).toBe(
+      true,
+    );
+    // Повторное снятие — уже нечего снимать: маршрут превратит это в 404.
+    expect(await cancelTableBooking(sql, restaurantId, table.id, date)).toBe(
+      false,
+    );
+    expect((await findRow(restaurantId, date, table.id))?.bookedFrom).toBe(
+      null,
+    );
+
+    // Освободившийся день бронируется снова.
+    await bookTableForDay(sql, restaurantId, table.id, {
+      date,
+      time: "21:00",
+      guestName: "Gast",
+      partySize: 2,
+    });
+    expect((await findRow(restaurantId, date, table.id))?.bookedFrom).toBe(
+      "21:00",
+    );
+  });
+
+  it("не бронирует и не снимает бронь через чужой ресторан", async () => {
+    const table = await createTable(sql, restaurantId, {
+      ...INPUT,
+      label: "R-book-foreign",
+    });
+    const date = day(8);
+
+    await expect(
+      bookTableForDay(sql, otherId, table.id, {
+        date,
+        time: "18:00",
+        guestName: "Gast",
+        partySize: 2,
+      }),
+    ).rejects.toMatchObject({ code: "45015" });
+
+    await bookTableForDay(sql, restaurantId, table.id, {
+      date,
+      time: "18:00",
+      guestName: "Gast",
+      partySize: 2,
+    });
+    expect(await cancelTableBooking(sql, otherId, table.id, date)).toBe(false);
+    expect((await findRow(restaurantId, date, table.id))?.bookedFrom).toBe(
+      "18:00",
+    );
+  });
+
+  it("отвергает вторую бронь того же столика в тот же день", async () => {
+    const table = await createTable(sql, restaurantId, {
+      ...INPUT,
+      label: "R-book-twice",
+    });
+    const date = day(9);
+    const input = {
+      date,
+      time: "19:00",
+      guestName: "Gast",
+      partySize: 2,
+    };
+
+    await bookTableForDay(sql, restaurantId, table.id, input);
+    await expect(
+      bookTableForDay(sql, restaurantId, table.id, input),
+    ).rejects.toMatchObject({ code: "45016" });
   });
 });

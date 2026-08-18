@@ -85,14 +85,15 @@ describe("полный цикл миграций на изолированной
     expect(pending).toEqual([]);
   });
 
-  it("ставит все восемь функций §5.2 и служебные роли", async () => {
+  it("ставит функции §5.2, дневную бронь портала и служебные роли", async () => {
     const functions = await sql<{ proname: string }[]>`
       SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname='public' AND p.proname IN (
         'find_available_slots','create_reservation_atomic','cancel_reservation_by_phone',
         'find_menu_items','find_pickup_slots','create_pickup_order_atomic',
-        'create_callback_request','purge_expired_personal_data')`;
-    expect(functions).toHaveLength(8);
+        'create_callback_request','purge_expired_personal_data',
+        'book_table_for_day','cancel_table_booking')`;
+    expect(functions).toHaveLength(10);
 
     const roles = await sql<{ rolname: string }[]>`
       SELECT rolname FROM pg_roles WHERE rolname IN ('n8n_app','portal_app')`;

@@ -13,3 +13,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public REVOKE EXECUTE ON F
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION find_available_slots(uuid,date,int,time,int),create_reservation_atomic(uuid,timestamptz,int,text,text,char,text),cancel_reservation_by_phone(uuid,text,date),find_menu_items(uuid,text,char,bool,bool,text[],int),find_pickup_slots(uuid,timestamptz,int,int),create_pickup_order_atomic(uuid,jsonb,timestamptz,text,text,char,text),create_callback_request(uuid,text,char,text,text) TO n8n_app,portal_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;
+-- Дневная бронь столика из портала (PROJECT.md §7.3): право только у portal_app.
+-- n8n_app получит его вместе с workflow бронирования — заглушек не заводим.
+GRANT EXECUTE ON FUNCTION book_table_for_day(uuid,uuid,date,time,int,text,text),cancel_table_booking(uuid,uuid,date) TO portal_app;

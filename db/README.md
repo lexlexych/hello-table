@@ -34,6 +34,15 @@ administrator edits. Operational tables hold personal data and are pruned only b
 Note for callers: `ON DELETE RESTRICT` raises SQLSTATE **23001** (`restrict_violation`),
 not 23503.
 
+## Portal day bookings
+
+`book_table_for_day` and `cancel_table_booking` back the `/tables` screen. Unlike
+`create_reservation_atomic`, which picks a table for a party and books one `slot_minutes`
+window, they book a **caller-chosen** table from a given local time until local midnight of
+the next day. Rows land in `reservations` so the voice agent sees the table as taken.
+`max_party_size` is deliberately not enforced there: it caps phone bookings, and the table
+is chosen by a human. Only `portal_app` holds `EXECUTE`.
+
 ## Application errors
 
 | SQLSTATE | Message |
@@ -53,6 +62,8 @@ not 23503.
 | 45012 | phone_required |
 | 45013 | invalid_category |
 | 45014 | summary_too_long |
+| 45015 | table_not_available |
+| 45016 | table_already_booked |
 
 ## Time zones
 

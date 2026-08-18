@@ -25,3 +25,33 @@ export function toDbErrorCode(error: unknown): DbErrorCode | undefined {
   const { code } = error as { code?: unknown };
   return typeof code === "string" ? BY_SQLSTATE[code] : undefined;
 }
+
+/**
+ * Доменные отказы функций Postgres. Они поднимаются с собственными SQLSTATE из
+ * диапазона 45xxx (таблица — `db/README.md`) и означают не поломку, а нормальный
+ * ответ «так нельзя»: столик занят, день прошёл. Отдельно от `toDbErrorCode`,
+ * потому что там нарушения ограничений таблиц, а здесь — правила бизнес-логики.
+ */
+
+export const APP_ERROR_CODES = [
+  "restaurant_not_found",
+  "slot_in_past",
+  "table_not_available",
+  "table_already_booked",
+] as const;
+export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
+
+const BY_APP_SQLSTATE: Record<string, AppErrorCode> = {
+  "45000": "restaurant_not_found",
+  "45006": "slot_in_past",
+  "45015": "table_not_available",
+  "45016": "table_already_booked",
+};
+
+export function toAppErrorCode(error: unknown): AppErrorCode | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+  const { code } = error as { code?: unknown };
+  return typeof code === "string" ? BY_APP_SQLSTATE[code] : undefined;
+}

@@ -84,6 +84,19 @@ describe("роль n8n_app (§3.5)", () => {
     ).rejects.toMatchObject({ code: "45000" });
   });
 
+  it("не может вызвать функции дневной брони портала", async () => {
+    for (const call of [
+      "SELECT * FROM book_table_for_day('00000000-0000-0000-0000-000000000000'::uuid," +
+        " '00000000-0000-0000-0000-000000000000'::uuid, current_date, time '12:00', 2, 'x', 'portal')",
+      "SELECT cancel_table_booking('00000000-0000-0000-0000-000000000000'::uuid," +
+        " '00000000-0000-0000-0000-000000000000'::uuid, current_date)",
+    ]) {
+      await expect(
+        asRole("n8n_app", (tx) => tx.unsafe(call)),
+      ).rejects.toMatchObject({ code: "42501" });
+    }
+  });
+
   it("не может вызвать purge_expired_personal_data", async () => {
     await expect(
       asRole("n8n_app", (tx) => tx`SELECT purge_expired_personal_data()`),
@@ -175,6 +188,20 @@ describe("роль portal_app (§5.3)", () => {
       ),
     ).rejects.toMatchObject({ code: "45000" });
   });
+
+  it("может бронировать столик на день и снимать бронь", async () => {
+    // Ресторана нет — ждём доменную 45000, а НЕ отказ в правах 42501.
+    for (const call of [
+      "SELECT * FROM book_table_for_day('00000000-0000-0000-0000-000000000000'::uuid," +
+        " '00000000-0000-0000-0000-000000000000'::uuid, current_date, time '12:00', 2, 'x', 'portal')",
+      "SELECT cancel_table_booking('00000000-0000-0000-0000-000000000000'::uuid," +
+        " '00000000-0000-0000-0000-000000000000'::uuid, current_date)",
+    ]) {
+      await expect(
+        asRole("portal_app", (tx) => tx.unsafe(call)),
+      ).rejects.toMatchObject({ code: "45000" });
+    }
+  });
 });
 
 describe("владелец схемы", () => {
@@ -192,9 +219,10 @@ describe("владелец схемы", () => {
       WHERE n.nspname = 'public' AND p.proname IN (
         'find_available_slots','create_reservation_atomic','cancel_reservation_by_phone',
         'find_menu_items','find_pickup_slots','create_pickup_order_atomic',
-        'create_callback_request','purge_expired_personal_data')`;
+        'create_callback_request','purge_expired_personal_data',
+        'book_table_for_day','cancel_table_booking')`;
 
-    expect(rows).toHaveLength(8);
+    expect(rows).toHaveLength(10);
     for (const row of rows) {
       expect(row.prosecdef).toBe(true);
       expect(row.owner).toBe("app_owner");

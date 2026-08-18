@@ -20,6 +20,8 @@ vi.mock("@/lib/tables", () => ({
   createTable: vi.fn(),
   updateTable: vi.fn(),
   deleteTable: vi.fn(),
+  bookTableForDay: vi.fn(),
+  cancelTableBooking: vi.fn(),
 }));
 
 const VALID = {
@@ -32,10 +34,25 @@ const VALID = {
 
 const SAVED = { id: TABLE_ID, ...VALID };
 
+const VALID_BOOKING = {
+  date: "2099-08-22",
+  time: "18:30",
+  guestName: "Frau Meier",
+  partySize: 4,
+};
+
+const BOOKED = {
+  reservationId: "12000000-0000-0000-0000-000000000001",
+  tableLabel: "T9",
+  bookedFrom: "18:30",
+};
+
 let repo: {
   createTable: ReturnType<typeof vi.fn>;
   updateTable: ReturnType<typeof vi.fn>;
   deleteTable: ReturnType<typeof vi.fn>;
+  bookTableForDay: ReturnType<typeof vi.fn>;
+  cancelTableBooking: ReturnType<typeof vi.fn>;
 };
 let POST: (request: NextRequest) => Promise<Response>;
 let PATCH: (
@@ -43,6 +60,14 @@ let PATCH: (
   context: { params: Promise<{ id: string }> },
 ) => Promise<Response>;
 let DELETE: (
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) => Promise<Response>;
+let bookingPOST: (
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) => Promise<Response>;
+let bookingDELETE: (
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) => Promise<Response>;
@@ -57,6 +82,9 @@ beforeAll(async () => {
   repo = (await import("@/lib/tables")) as unknown as typeof repo;
   ({ POST } = await import("@/app/api/tables/route"));
   ({ PATCH, DELETE } = await import("@/app/api/tables/[id]/route"));
+  ({ POST: bookingPOST, DELETE: bookingDELETE } = await import(
+    "@/app/api/tables/[id]/booking/route"
+  ));
 
   const { NextRequest } = await import("next/server");
   make = (method, path, options = {}) =>
@@ -76,6 +104,8 @@ beforeEach(() => {
   vi.mocked(repo.createTable).mockReset().mockResolvedValue(SAVED);
   vi.mocked(repo.updateTable).mockReset().mockResolvedValue(SAVED);
   vi.mocked(repo.deleteTable).mockReset().mockResolvedValue(true);
+  vi.mocked(repo.bookTableForDay).mockReset().mockResolvedValue(BOOKED);
+  vi.mocked(repo.cancelTableBooking).mockReset().mockResolvedValue(true);
 });
 
 async function cookieFor(role: "admin" | "operator"): Promise<string> {
@@ -248,6 +278,173 @@ describe("DELETE /api/tables/[id]", () => {
       make("DELETE", `/api/tables/${TABLE_ID}`, {
         cookie: await cookieFor("admin"),
       }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
+/**
+ * Бронь — операционное действие, а не правка справочника: по PROJECT.md §7.2 её
+ * ведут обе роли. Это главное отличие маршрута от CRUD столиков выше.
+ */
+describe("POST /api/tables/[id]/booking", () => {
+  const path = `/api/tables/${TABLE_ID}/booking`;
+
+  it("отказывает без сессии", async () => {
+    const response = await bookingPOST(
+      make("POST", path, { body: VALID_BOOKING }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(401);
+    expect(repo.bookTableForDay).not.toHaveBeenCalled();
+  });
+
+  it("пускает оператора: брони ведут обе роли", async () => {
+    const response = await bookingPOST(
+      make("POST", path, {
+        cookie: await cookieFor("operator"),
+        body: VALID_BOOKING,
+      }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual(BOOKED);
+    expect(repo.bookTableForDay).toHaveBeenCalledWith(
+      expect.anything(),
+      RESTAURANT_ID,
+      TABLE_ID,
+      expect.objectContaining({ time: "18:30", partySize: 4 }),
+    );
+  });
+
+  it("пускает администратора", async () => {
+    const response = await bookingPOST(
+      make("POST", path, {
+        cookie: await cookieFor("admin"),
+        body: VALID_BOOKING,
+      }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(201);
+  });
+
+  it("отвергает тело за пределами схемы", async () => {
+    for (const body of [
+      { ...VALID_BOOKING, time: "25:00" },
+      { ...VALID_BOOKING, date: "22.08.2099" },
+      { ...VALID_BOOKING, guestName: "  " },
+      { ...VALID_BOOKING, partySize: 0 },
+    ]) {
+      const response = await bookingPOST(
+        make("POST", path, { cookie: await cookieFor("admin"), body }),
+        params(TABLE_ID),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(repo.bookTableForDay).not.toHaveBeenCalled();
+  });
+
+  it("отдаёт 404 на идентификатор, который не uuid", async () => {
+    const response = await bookingPOST(
+      make("POST", "/api/tables/not-a-uuid/booking", {
+        cookie: await cookieFor("admin"),
+        body: VALID_BOOKING,
+      }),
+      params("not-a-uuid"),
+    );
+    expect(response.status).toBe(404);
+    expect(repo.bookTableForDay).not.toHaveBeenCalled();
+  });
+
+  it("превращает занятый столик в 409, а не в ошибку сервера", async () => {
+    vi.mocked(repo.bookTableForDay).mockRejectedValue({ code: "45016" });
+    const response = await bookingPOST(
+      make("POST", path, {
+        cookie: await cookieFor("admin"),
+        body: VALID_BOOKING,
+      }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "table_already_booked" });
+  });
+
+  it("превращает недоступный столик и прошедший день в 400", async () => {
+    for (const [code, error] of [
+      ["45015", "table_not_available"],
+      ["45006", "slot_in_past"],
+    ] as const) {
+      vi.mocked(repo.bookTableForDay).mockRejectedValue({ code });
+      const response = await bookingPOST(
+        make("POST", path, {
+          cookie: await cookieFor("admin"),
+          body: VALID_BOOKING,
+        }),
+        params(TABLE_ID),
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error });
+    }
+  });
+
+  it("прячет неизвестную ошибку базы за 500", async () => {
+    vi.mocked(repo.bookTableForDay).mockRejectedValue({ code: "42P01" });
+    const response = await bookingPOST(
+      make("POST", path, {
+        cookie: await cookieFor("admin"),
+        body: VALID_BOOKING,
+      }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "internal_error" });
+  });
+});
+
+describe("DELETE /api/tables/[id]/booking", () => {
+  const path = `/api/tables/${TABLE_ID}/booking?date=2099-08-22`;
+
+  it("отказывает без сессии", async () => {
+    const response = await bookingDELETE(
+      make("DELETE", path),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(401);
+    expect(repo.cancelTableBooking).not.toHaveBeenCalled();
+  });
+
+  it("снимает бронь по требованию оператора", async () => {
+    const response = await bookingDELETE(
+      make("DELETE", path, { cookie: await cookieFor("operator") }),
+      params(TABLE_ID),
+    );
+    expect(response.status).toBe(204);
+    expect(repo.cancelTableBooking).toHaveBeenCalledWith(
+      expect.anything(),
+      RESTAURANT_ID,
+      TABLE_ID,
+      "2099-08-22",
+    );
+  });
+
+  it("отдаёт 404 без дня и с несуществующей датой", async () => {
+    for (const query of ["", "?date=", "?date=2099-02-30", "?date=завтра"]) {
+      const response = await bookingDELETE(
+        make("DELETE", `/api/tables/${TABLE_ID}/booking${query}`, {
+          cookie: await cookieFor("admin"),
+        }),
+        params(TABLE_ID),
+      );
+      expect(response.status).toBe(404);
+    }
+    expect(repo.cancelTableBooking).not.toHaveBeenCalled();
+  });
+
+  it("отдаёт 404, если брони на этот день не было", async () => {
+    vi.mocked(repo.cancelTableBooking).mockResolvedValue(false);
+    const response = await bookingDELETE(
+      make("DELETE", path, { cookie: await cookieFor("admin") }),
       params(TABLE_ID),
     );
     expect(response.status).toBe(404);

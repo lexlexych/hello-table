@@ -29,3 +29,20 @@ export const tableInputSchema = z.object({
 });
 
 export type TableInput = z.infer<typeof tableInputSchema>;
+
+/**
+ * Дневная бронь столика (PROJECT.md §7.3). Столик приходит адресом маршрута, поэтому
+ * в теле его нет. Дата и время — строки, а не `Date`: часовой пояс ресторана знает
+ * только база, и превращать местное «18:30» в момент времени должна она
+ * (`book_table_for_day`), а не браузер оператора.
+ */
+export const tableBookingSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Дата в формате ГГГГ-ММ-ДД"),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Время в формате ЧЧ:ММ"),
+  guestName: trimmed.min(1, "Укажите имя гостя").max(120),
+  // Верхняя граница — CHECK таблицы reservations. max_party_size здесь намеренно не
+  // применяется: это лимит телефонных броней, а столик выбирает человек.
+  partySize: z.int().min(1).max(100),
+});
+
+export type TableBookingInput = z.infer<typeof tableBookingSchema>;
