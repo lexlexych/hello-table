@@ -12,6 +12,10 @@ import type { Room } from "@livekit/rtc-node";
 import { parse } from "yaml";
 import { z } from "zod";
 import type { Config } from "./config.ts";
+import {
+  OpenAIStreamingTTS,
+  type OpenAIStreamingTTSOptions,
+} from "./openai-streaming-tts.ts";
 
 const phrasesSchema = z.object({
   greeting: z.string().trim().min(1),
@@ -88,8 +92,8 @@ export function buildStt(cfg: Config): openai.STT {
  * Модель определяет язык по тексту ответа GPT. Аргумент `language` нужен только для
  * выбора голосового профиля.
  */
-export function buildTts(cfg: Config, language: Language): openai.TTS {
-  const ttsOptions: Partial<openai.TTSOptions> = {
+export function buildTts(cfg: Config, language: Language): OpenAIStreamingTTS {
+  const ttsOptions: OpenAIStreamingTTSOptions = {
     apiKey: cfg.OPENAI_API_KEY,
     voice: ttsVoiceFor(cfg, language),
     model: cfg.TTS_MODEL,
@@ -97,7 +101,7 @@ export function buildTts(cfg: Config, language: Language): openai.TTS {
   if (cfg.OPENAI_BASE_URL !== undefined) {
     ttsOptions.baseURL = cfg.OPENAI_BASE_URL;
   }
-  return new openai.TTS(ttsOptions);
+  return new OpenAIStreamingTTS(ttsOptions);
 }
 
 /**
@@ -110,7 +114,7 @@ export function buildSessionOptions(
   cfg: Config,
   vad: VAD,
   stt: openai.STT,
-  tts: openai.TTS,
+  tts: OpenAIStreamingTTS,
 ): voice.AgentSessionOptions {
   const turnDetection =
     cfg.AGENT_TURN_DETECTOR === "multilingual"
