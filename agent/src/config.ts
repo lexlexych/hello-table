@@ -20,8 +20,17 @@ export const configSchema = z
     LIVEKIT_API_KEY: z.string().min(1),
     LIVEKIT_API_SECRET: z.string().min(1),
 
-    MISTRAL_API_KEY: z.string().min(1),
-    LLM_MODEL: z.string().min(1).default("mistral-large-latest"),
+    OPENAI_API_KEY: z.string().min(1),
+    OPENAI_BASE_URL: z.url().optional(),
+    LLM_MODEL: z.string().min(1).default("gpt-5.6-terra"),
+    /**
+     * Голосовой путь оптимизирован под минимальную задержку. `gpt-5.6-terra` по
+     * умолчанию использует medium, поэтому `none` задаётся явно и не зависит от
+     * меняющихся серверных умолчаний OpenAI.
+     */
+    LLM_REASONING_EFFORT: z
+      .enum(["none", "minimal", "low", "medium", "high"])
+      .default("none"),
 
     ELEVENLABS_API_KEY: z.string().min(1),
     ELEVENLABS_VOICE_ID: z.string().min(1),

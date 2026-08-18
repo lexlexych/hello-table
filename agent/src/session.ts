@@ -8,7 +8,7 @@ import {
 import { type llm, type VAD, voice } from "@livekit/agents";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as livekit from "@livekit/agents-plugin-livekit";
-import * as mistral from "@livekit/agents-plugin-mistralai";
+import * as openai from "@livekit/agents-plugin-openai";
 import type { Room } from "@livekit/rtc-node";
 import { parse } from "yaml";
 import { z } from "zod";
@@ -122,13 +122,21 @@ export function buildSessionOptions(
       ? new livekit.turnDetector.MultilingualModel()
       : "vad";
 
+  const llmOptions: openai.LLMOptions = {
+    apiKey: cfg.OPENAI_API_KEY,
+    model: cfg.LLM_MODEL,
+    reasoningEffort: cfg.LLM_REASONING_EFFORT,
+    // Chat Completions не должен создавать сохраняемое состояние разговора.
+    store: false,
+  };
+  if (cfg.OPENAI_BASE_URL !== undefined) {
+    llmOptions.baseURL = cfg.OPENAI_BASE_URL;
+  }
+
   return {
     stt,
     vad,
-    llm: new mistral.LLM({
-      apiKey: cfg.MISTRAL_API_KEY,
-      model: cfg.LLM_MODEL,
-    }),
+    llm: new openai.LLM(llmOptions),
     tts,
     turnHandling: {
       turnDetection,

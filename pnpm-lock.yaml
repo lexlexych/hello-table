@@ -44,9 +44,9 @@ importers:
       '@livekit/agents-plugin-livekit':
         specifier: 1.6.4
         version: 1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))
-      '@livekit/agents-plugin-mistralai':
+      '@livekit/agents-plugin-openai':
         specifier: 1.6.4
-        version: 1.6.4(@livekit/agents-plugin-silero@1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33))(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)(@opentelemetry/api@1.9.1)(@opentelemetry/resources@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
+        version: 1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)(zod@4.4.3)
       '@livekit/agents-plugin-silero':
         specifier: 1.6.4
         version: 1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
@@ -676,15 +676,12 @@ packages:
     peerDependencies:
       '@livekit/agents': 1.6.4
 
-  '@livekit/agents-plugin-mistralai@1.6.4':
-    resolution: {integrity: sha512-nBVTkrPo8CaF39AkcL/1xPHH+GXBHVD1RA7uJled26/j8a9yTha+MBFKQLgtT5I7it+JN4k4iYb52imdEPop8g==}
+  '@livekit/agents-plugin-openai@1.6.4':
+    resolution: {integrity: sha512-dqLFo4GkXdgZXECUdUkvW/WYSPzB5q3jRwXOr2iLGPFUBWQL5aSHAmpVVJTKmJK3Vt+8nE1JgU/FOB2kYvJQvA==}
     peerDependencies:
       '@livekit/agents': 1.6.4
-      '@livekit/agents-plugin-silero': 1.6.4
       '@livekit/rtc-node': ^0.13.33
-    peerDependenciesMeta:
-      '@livekit/agents-plugin-silero':
-        optional: true
+      zod: ^3.25.76 || ^4.1.8
 
   '@livekit/agents-plugin-silero@1.6.4':
     resolution: {integrity: sha512-CVLZefgd4Ee317n/mq10clM1zdrER/kwnStTPhSVLqRU5aLCEEk2KaW6lmHz+kI1jLrLlzVmyp7Z6aUik+zWNA==}
@@ -813,23 +810,6 @@ packages:
 
   '@livekit/typed-emitter@3.0.0':
     resolution: {integrity: sha512-9bl0k4MgBPZu3Qu3R3xy12rmbW17e3bE9yf4YY85gJIQ3ezLEj/uzpKHWBsLaDoL5Mozz8QCgggwIBudYQWeQg==}
-
-  '@mistralai/mistralai@2.6.3':
-    resolution: {integrity: sha512-4nOSDZTJXnmfsDtPFZEX4tAaJwIP2xyZwka9XK7ueNmOX0DuVhu2Ph2uWEeBMaNjpXbnVgmXLZ2Q58vFd8gsgg==}
-    peerDependencies:
-      '@opentelemetry/api': ^1.9.0
-      '@opentelemetry/exporter-trace-otlp-http': ^0.220.0
-      '@opentelemetry/resources': ^2.9.0
-      '@opentelemetry/sdk-trace-base': ^2.9.0
-    peerDependenciesMeta:
-      '@opentelemetry/api':
-        optional: true
-      '@opentelemetry/exporter-trace-otlp-http':
-        optional: true
-      '@opentelemetry/resources':
-        optional: true
-      '@opentelemetry/sdk-trace-base':
-        optional: true
 
   '@next/env@16.3.1':
     resolution: {integrity: sha512-35G3xwkQUb2oETSDjFXGrVugknoayLFBh7vSE+yAcl9IP2zT9wyGwq7297AYHR11kJld807t5f8AJBs6WBzXsQ==}
@@ -2560,18 +2540,18 @@ snapshots:
       '@livekit/agents': 1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3)
       onnxruntime-node: 1.24.3
 
-  '@livekit/agents-plugin-mistralai@1.6.4(@livekit/agents-plugin-silero@1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33))(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)(@opentelemetry/api@1.9.1)(@opentelemetry/resources@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
+  '@livekit/agents-plugin-openai@1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)(zod@4.4.3)':
     dependencies:
       '@livekit/agents': 1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3)
+      '@livekit/mutex': 1.1.1
       '@livekit/rtc-node': 0.13.33
-      '@mistralai/mistralai': 2.6.3(@opentelemetry/api@1.9.1)(@opentelemetry/resources@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
-    optionalDependencies:
-      '@livekit/agents-plugin-silero': 1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
+      openai: 6.49.0(ws@8.21.3)(zod@4.4.3)
+      ws: 8.21.3
+      zod: 4.4.3
     transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-http'
-      - '@opentelemetry/resources'
-      - '@opentelemetry/sdk-trace-base'
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
       - bufferutil
       - utf-8-validate
 
@@ -2728,20 +2708,6 @@ snapshots:
       typescript: 7.0.2
 
   '@livekit/typed-emitter@3.0.0': {}
-
-  '@mistralai/mistralai@2.6.3(@opentelemetry/api@1.9.1)(@opentelemetry/resources@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@opentelemetry/semantic-conventions': 1.43.0
-      ws: 8.21.3
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.1
-      '@opentelemetry/resources': 2.10.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@next/env@16.3.1': {}
 
