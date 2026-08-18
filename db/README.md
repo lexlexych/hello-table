@@ -11,7 +11,7 @@ new one. Every new function must also receive an explicit `REVOKE`/`GRANT` in `r
 `DB_RESET_CONFIRM=1 pnpm db:reset`. The runner never loads `.env`; pass configuration through
 the process environment. Reset refuses non-loopback database hosts.
 
-`pnpm db:passwords` sets the `n8n_app` and `portal_app` passwords from the environment
+`pnpm db:passwords` sets the `agent_app`, `n8n_app` and `portal_app` passwords from the environment
 without touching the schema. It is the one db command that reads `.env`. Use it whenever a
 role password in the cluster drifts from what an application's connection string expects
 (`28P01`).
@@ -25,6 +25,9 @@ leave the developer's working passwords alone.
 ## Roles
 
 `roles.sql` is reapplied on every `pnpm db:migrate`, so grant changes need no migration.
+`agent_app` is the voice-agent runtime role: it cannot access tables and can execute only
+`find_available_tables` and `create_reservation_for_table`. `n8n_app` remains separate for
+workflow launched from chats and forms; credentials are never shared between the two.
 `portal_app` holds `SELECT/INSERT/UPDATE` on all tables plus `DELETE` on exactly three
 reference tables — `restaurant_tables`, `menu_categories`, `menu_items` — which the portal
 administrator edits. Operational tables hold personal data and are pruned only by

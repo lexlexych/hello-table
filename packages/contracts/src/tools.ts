@@ -9,15 +9,15 @@ import {
 } from "./domain.ts";
 
 /**
- * Контракты вебхуков n8n. Текстовое описание каждого — docs/tool-contracts.md,
- * список инструментов — docs/PROJECT.md §6.
+ * Контракты инструментов и совместимых n8n-входов. Текстовое описание каждого —
+ * docs/tool-contracts.md, список инструментов — docs/PROJECT.md §6.
  *
  * Ключи в snake_case: это форма JSON на проводе, а не объект TypeScript. Ответ
  * вебхука — строго типизированная структура без свободного текста: агент передаёт
  * результат в LLM, и непредсказуемый формат заставит модель выдумывать (§3.4).
  */
 
-/** Поля, которые несёт каждый запрос к любому инструменту (PROJECT.md §3.5). */
+/** Envelope n8n-входа; прямой агент берёт restaurant_id из конфига и не передаёт session_id. */
 export const toolEnvelopeSchema = z.object({
   restaurant_id: idSchema,
   session_id: z.string().min(1),
@@ -109,8 +109,7 @@ export type RequestCallbackResponse = z.infer<
 >;
 
 /**
- * Пути вебхуков из PROJECT.md §6. Клиент собирает адрес как
- * `${N8N_BASE_URL}/webhook/${WEBHOOK_PATHS.check_availability}`.
+ * Пути сохранённых workflow n8n для чата и формуляров. Голосовой агент их не вызывает.
  */
 export const WEBHOOK_PATHS = {
   check_availability: "reservation.check",

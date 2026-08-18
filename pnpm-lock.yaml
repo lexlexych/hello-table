@@ -50,6 +50,9 @@ importers:
       '@livekit/rtc-node':
         specifier: 0.13.33
         version: 0.13.33
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
       yaml:
         specifier: 2.9.0
         version: 2.9.0

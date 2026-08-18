@@ -21,9 +21,9 @@ export const callbackCategorySchema = z.enum(CALLBACK_CATEGORIES);
 export type CallbackCategory = z.infer<typeof callbackCategorySchema>;
 
 /**
- * Ошибки, которые может вернуть сам вебхук. Имена совпадают с прикладными SQLSTATE
- * из db/README.md: n8n перекладывает код Postgres в это поле один в один.
- * `invalid_request` — единственный код, который добавляет n8n: вход не прошёл валидацию.
+ * Доменные ошибки инструментов. Имена совпадают с прикладными SQLSTATE из
+ * db/README.md; прямой клиент агента переводит SQLSTATE в этот enum. `invalid_request`
+ * остаётся для n8n-входов из чата и формуляров, не прошедших валидацию.
  */
 export const DOMAIN_TOOL_ERRORS = [
   "restaurant_not_found",
@@ -41,8 +41,8 @@ export const domainToolErrorSchema = z.enum(DOMAIN_TOOL_ERRORS);
 export type DomainToolError = z.infer<typeof domainToolErrorSchema>;
 
 /**
- * Ошибки транспорта. Их формирует агент, а не вебхук: вебхук в этот момент
- * недоступен либо ответил не по контракту.
+ * Ошибки транспорта. Их формирует агент: база недоступна, превысила таймаут либо
+ * вернула результат не по контракту.
  */
 export const TRANSPORT_TOOL_ERRORS = [
   "timeout",

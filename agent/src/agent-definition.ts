@@ -15,6 +15,7 @@ import {
 } from "./session.ts";
 import { startSessionWithDisclosure } from "./startup.ts";
 import { attachTelemetry } from "./telemetry.ts";
+import { createAgentDatabase } from "./tools/database.ts";
 import { buildTools } from "./tools/index.ts";
 
 interface ProcessData {
@@ -23,6 +24,10 @@ interface ProcessData {
 
 /** Creates the worker definition around one config object validated by the worker entrypoint. */
 export function createAgent(config: Config) {
+  const database = createAgentDatabase(
+    config.AGENT_DATABASE_URL,
+    config.AGENT_DATABASE_TIMEOUT_MS,
+  );
   return defineAgent<ProcessData>({
     prewarm: async (proc) => {
       proc.userData.vad = await silero.VAD.load();
@@ -52,10 +57,9 @@ export function createAgent(config: Config) {
         });
       });
 
-      // Инструменты строятся после сессии: филлер-фразу произносит она же, через
-      // ctx.session внутри инструмента. Идентификатор разговора — имя комнаты LiveKit,
-      // персональных данных в нём нет.
-      const tools = buildTools(config, phrases, ctx.room.name ?? ctx.job.id);
+      // Инструменты строятся после сессии: филлер-фразу произносит она же через
+      // ctx.session внутри инструмента. Пул agent_app разделяется сессиями job-процесса.
+      const tools = buildTools(config, phrases, database);
       const agent = createGermanAgent(await loadSystemPrompt(), tools);
       await startSessionWithDisclosure(
         session,

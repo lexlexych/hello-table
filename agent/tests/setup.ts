@@ -5,6 +5,7 @@ const secretNames = [
   "LIVEKIT_API_KEY",
   "LIVEKIT_API_SECRET",
   "N8N_WEBHOOK_SECRET",
+  "AGENT_DATABASE_URL",
   "TELEGRAM_BOT_TOKEN",
 ];
 

@@ -24,8 +24,8 @@ function config(turnDetector: "multilingual" | "off" = "multilingual") {
     ELEVENLABS_VOICE_ID: "test-voice",
     ELEVENLABS_MODEL: "test-model",
     RESTAURANT_ID: "10000000-0000-0000-0000-000000000001",
-    N8N_BASE_URL: "http://localhost:5678",
-    N8N_WEBHOOK_SECRET: "0123456789abcdef0123456789abcdef",
+    AGENT_DATABASE_URL:
+      "postgres://agent_app:test-password@localhost:55432/restaurant",
     AGENT_TURN_DETECTOR: turnDetector,
     AGENT_MIN_ENDPOINTING_DELAY_MS: "350",
     AGENT_MAX_ENDPOINTING_DELAY_MS: "2500",

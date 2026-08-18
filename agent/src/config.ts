@@ -57,10 +57,26 @@ export const configSchema = z
         "must be a UUID-shaped identifier",
       ),
 
-    /** Инструменты агента — вебхуки n8n. Без этих трёх значений агент бесполезен. */
-    N8N_BASE_URL: z.url(),
-    N8N_WEBHOOK_SECRET: z.string().min(32),
-    N8N_TIMEOUT_MS: z.coerce
+    /**
+     * Прямая строка подключения инструментов. Имя роли проверяется здесь, чтобы
+     * app_owner или portal_app нельзя было случайно запустить в runtime агента.
+     */
+    AGENT_DATABASE_URL: z
+      .url()
+      .refine(
+        (value) =>
+          ["postgres:", "postgresql:"].includes(new URL(value).protocol),
+        {
+          message: "must use the postgres or postgresql protocol",
+        },
+      )
+      .refine((value) => new URL(value).username === "agent_app", {
+        message: "must connect as agent_app",
+      })
+      .refine((value) => new URL(value).password.length > 0, {
+        message: "must include the agent_app password",
+      }),
+    AGENT_DATABASE_TIMEOUT_MS: z.coerce
       .number()
       .int()
       .min(1_000)

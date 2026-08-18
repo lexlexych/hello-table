@@ -1,6 +1,6 @@
-DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='n8n_app') THEN CREATE ROLE n8n_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='portal_app') THEN CREATE ROLE portal_app LOGIN; END IF; END $$;
-DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO n8n_app, portal_app',current_database()); END $$;
-GRANT USAGE ON SCHEMA public TO n8n_app,portal_app; REVOKE CREATE ON SCHEMA public FROM PUBLIC; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM n8n_app;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='agent_app') THEN CREATE ROLE agent_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='n8n_app') THEN CREATE ROLE n8n_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='portal_app') THEN CREATE ROLE portal_app LOGIN; END IF; END $$;
+DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO agent_app, n8n_app, portal_app',current_database()); END $$;
+GRANT USAGE ON SCHEMA public TO agent_app,n8n_app,portal_app; REVOKE CREATE ON SCHEMA public FROM PUBLIC; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM agent_app,n8n_app;
 GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA public TO portal_app; REVOKE ALL ON TABLE schema_migrations FROM portal_app;
 -- DELETE выдаётся точечно и только на справочники, которыми администратор управляет из портала.
 -- Операционные таблицы (брони, заказы, обратные звонки, журнал звонков) содержат персональные
@@ -11,10 +11,12 @@ GRANT DELETE ON TABLE restaurant_tables, menu_categories, menu_items TO portal_a
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public GRANT SELECT,INSERT,UPDATE ON TABLES TO portal_app;
 ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
+-- Переприменение файла всегда возвращает agent_app к точному белому списку ниже.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM agent_app;
 GRANT EXECUTE ON FUNCTION find_available_slots(uuid,date,int,time,int),create_reservation_atomic(uuid,timestamptz,int,text,text,char,text),cancel_reservation_by_phone(uuid,text,date),find_menu_items(uuid,text,char,bool,bool,text[],int),find_pickup_slots(uuid,timestamptz,int,int),create_pickup_order_atomic(uuid,jsonb,timestamptz,text,text,char,text),create_callback_request(uuid,text,char,text,text) TO n8n_app,portal_app;
--- Выбор столика по зоне и бронь именно этого столика (инструменты check_availability и
--- create_reservation). Право только у n8n_app: портал бронирует через book_table_for_day.
-GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO n8n_app;
+-- Голосовой агент вызывает эти две RPC напрямую под отдельной ролью; n8n сохраняет доступ
+-- для тех же операций из будущего чата и формуляра. Обе роли не читают таблицы.
+GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO agent_app,n8n_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;
 -- Дневная бронь столика из портала (PROJECT.md §7.3): право только у portal_app.
 -- n8n_app получит его вместе с workflow бронирования — заглушек не заводим.

@@ -132,9 +132,14 @@ export async function applyRoles(sql: Sql, file: string): Promise<void> {
 
 export async function setRolePasswords(
   sql: Sql,
-  passwords: { n8nApp?: string | undefined; portalApp?: string | undefined },
+  passwords: {
+    agentApp?: string | undefined;
+    n8nApp?: string | undefined;
+    portalApp?: string | undefined;
+  },
 ): Promise<void> {
   for (const [role, value] of [
+    ["agent_app", passwords.agentApp],
     ["n8n_app", passwords.n8nApp],
     ["portal_app", passwords.portalApp],
   ] as const) {

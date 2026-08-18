@@ -14,10 +14,12 @@ export function assertLocalDatabase(url: string): void {
     );
 }
 export function rolePasswords(): {
+  agentApp?: string | undefined;
   n8nApp?: string | undefined;
   portalApp?: string | undefined;
 } {
   return {
+    agentApp: process.env.AGENT_APP_PASSWORD || undefined,
     n8nApp: process.env.N8N_APP_PASSWORD || undefined,
     portalApp: process.env.PORTAL_APP_PASSWORD || undefined,
   };

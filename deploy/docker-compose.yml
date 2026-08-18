@@ -33,9 +33,12 @@ services:
     build: ../agent # Dockerfile появится в итерации 3
     mem_limit: 4g # супервизор + процессы сессий звонков
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      # На Hetzner агент ходит к n8n по внутренней Docker-сети, без публичного webhook URL.
-      N8N_BASE_URL: http://n8n:5678
+      # Runtime использует только agent_app; app_owner в процессе агента запрещён.
+      AGENT_DATABASE_URL: postgres://agent_app:${AGENT_APP_PASSWORD:?Set AGENT_APP_PASSWORD in .env}@postgres:5432/${POSTGRES_DB}
 
   n8n:
     image: n8nio/n8n:2.33.3

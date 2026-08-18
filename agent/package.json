@@ -20,6 +20,7 @@
     "@livekit/agents-plugin-mistralai": "1.6.4",
     "@livekit/agents-plugin-silero": "1.6.4",
     "@livekit/rtc-node": "0.13.33",
+    "postgres": "3.4.9",
     "yaml": "2.9.0",
     "zod": "4.4.3"
   }

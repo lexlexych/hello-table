@@ -89,7 +89,7 @@ export function buildStartOptions(
   return { agent, room, record: false };
 }
 
-/** Creates the German-only agent of this prototype together with its n8n-backed tools. */
+/** Creates the German-only agent of this prototype together with its registered tools. */
 export function createGermanAgent(
   systemPrompt: string,
   tools: llm.ToolContextLike,

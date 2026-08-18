@@ -1,18 +1,10 @@
-import {
-  type AvailableTable,
-  checkAvailabilityResponseSchema,
-  createReservationResponseSchema,
-  languageSchema,
-  WEBHOOK_PATHS,
-} from "@hello-table/contracts";
+import { type AvailableTable, languageSchema } from "@hello-table/contracts";
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 import type { GermanPhrases } from "../session.ts";
-import {
-  callWebhook,
-  type WebhookClientOptions,
-  withFiller,
-} from "./client.ts";
+import type { AgentDatabase } from "./database.ts";
+import { withFiller } from "./filler.ts";
+import { createReservation, findAvailableTables } from "./reservations-db.ts";
 
 /**
  * Инструменты бронирования. Порядок задан структурой, а не только промптом:
@@ -21,10 +13,9 @@ import {
  */
 
 export interface ToolDeps {
-  client: WebhookClientOptions;
+  database: AgentDatabase;
   phrases: GermanPhrases;
   restaurantId: string;
-  sessionId: string;
 }
 
 /** Результат инструмента для модели: либо данные, либо код отказа с готовой фразой. */
@@ -69,18 +60,12 @@ export function checkAvailabilityTool(deps: ToolDeps) {
         opts.ctx.session,
         deps.phrases.filler_checking,
         () =>
-          callWebhook(
-            deps.client,
-            WEBHOOK_PATHS.check_availability,
-            {
-              restaurant_id: deps.restaurantId,
-              session_id: deps.sessionId,
-              date: args.date,
-              time: args.time,
-              party_size: args.party_size,
-            },
-            checkAvailabilityResponseSchema,
-          ),
+          findAvailableTables(deps.database, {
+            restaurant_id: deps.restaurantId,
+            date: args.date,
+            time: args.time,
+            party_size: args.party_size,
+          }),
       );
 
       if (!outcome.ok) return failure(deps.phrases, outcome.error);
@@ -125,24 +110,18 @@ export function createReservationTool(deps: ToolDeps) {
         opts.ctx.session,
         deps.phrases.filler_booking,
         () =>
-          callWebhook(
-            deps.client,
-            WEBHOOK_PATHS.create_reservation,
-            {
-              restaurant_id: deps.restaurantId,
-              session_id: deps.sessionId,
-              table_id: args.table_id,
-              date: args.date,
-              time: args.time,
-              party_size: args.party_size,
-              guest_name: args.guest_name,
-              guest_phone: args.guest_phone,
-              // Прототип ведёт разговор только по-немецки; язык берётся из схемы
-              // контрактов, а не пишется строкой в двух местах.
-              language: languageSchema.enum.de,
-            },
-            createReservationResponseSchema,
-          ),
+          createReservation(deps.database, {
+            restaurant_id: deps.restaurantId,
+            table_id: args.table_id,
+            date: args.date,
+            time: args.time,
+            party_size: args.party_size,
+            guest_name: args.guest_name,
+            guest_phone: args.guest_phone,
+            // Прототип ведёт разговор только по-немецки; язык берётся из схемы
+            // контрактов, а не пишется строкой в двух местах.
+            language: languageSchema.enum.de,
+          }),
       );
 
       if (!outcome.ok) return failure(deps.phrases, outcome.error);
