@@ -21,6 +21,8 @@ describe("database functions", () => {
       "purge_expired_personal_data",
       "book_table_for_day",
       "cancel_table_booking",
+      "find_available_tables",
+      "create_reservation_for_table",
     ])
       expect(names).toContain(name);
   });

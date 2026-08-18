@@ -488,7 +488,8 @@ menu_items
   price_cents int, allergens text[],
   is_vegetarian, is_vegan, is_available,
   aliases text[],          -- варианты произношения для сопоставления из речи
-  prep_minutes int default 15
+  prep_minutes int default 15,
+  weight_g, volume_ml, kcal, protein_g, fat_g, carbs_g int  -- все nullable, миграция 005
 
 reservations
   id, restaurant_id fk, table_id fk,
@@ -551,6 +552,22 @@ create_reservation_atomic(restaurant, starts_at, party_size, name, phone,
      confirmed_starts_at timestamptz, confirmed_ends_at timestamptz)
   |  RAISE 'no_table_available' | 'closed_at_requested_time' | 'party_too_large'
 
+find_available_tables(restaurant, date, time, party_size)
+  → (table_id uuid, table_label text, table_seats int, table_zone text)
+  -- ВСЕ свободные столики на конкретное время, вместе с зоной: по ней агент
+  -- спрашивает «зал или терраса». find_available_slots для этого не годится —
+  -- он отвечает на вопрос «когда прийти» и отдаёт по одному столику на время
+
+create_reservation_for_table(restaurant, table, date, time, party_size, name,
+                             phone, language, source)
+  → (reservation_id uuid, booked_table_label text,
+     confirmed_starts_at timestamptz, confirmed_ends_at timestamptz)
+  |  RAISE 'table_not_available' | 'table_already_booked' | 'party_too_large'
+     | 'closed_at_requested_time' | 'slot_in_past'
+  -- бронь столика, который выбрал гость; столик не подбирается. Дата и время
+  -- раздельно, а не timestamptz: у n8n нет прав на таблицы и он не может
+  -- прочитать часовой пояс ресторана
+
 cancel_reservation_by_phone(restaurant, phone, date) → int
 
 find_menu_items(restaurant, query text, lang char(2), vegan_only, vegetarian_only,
@@ -587,7 +604,9 @@ cancel_table_booking(restaurant, table, date) → int
 `n8n_app` получит право вместе с workflow бронирования.
 
 Все функции — `SECURITY DEFINER`, владелец `app_owner`, право `EXECUTE` выдано
-роли `n8n_app`.
+роли `n8n_app`. Исключения: `book_table_for_day` и `cancel_table_booking` — только
+`portal_app`; `find_available_tables` и `create_reservation_for_table` — только
+`n8n_app` (портал бронирует столик на день, а не на слот).
 
 ⚠️ Уточнения, зафиксированные спекой 001:
 
@@ -639,6 +658,18 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 | `check_pickup_slots` | `pickup.slots` | Когда можно забрать заказ |
 | `create_pickup_order` | `pickup.create` | Оформление самовывоза |
 | `request_callback` | `callback.create` | Резюме + Telegram оператору |
+
+Состояние на 18.08.2026: контракты, zod-схемы и регистрация в агенте сделаны для трёх
+инструментов — `check_availability`, `create_reservation`, `request_callback`. Сделаны
+раньше своей очереди, по указанию владельца, ради демо-кейса «Базилик»: обоснование —
+`docs/architecture.md`. Workflow n8n для них ещё нет (итерация 5), поэтому вызовы
+возвращают транспортную ошибку `unreachable`, а агент извиняется и предлагает оставить
+сообщение менеджеру.
+
+`check_availability` отвечает не слотами, а списком свободных столиков с зоной на
+названное гостем время: агент обязан спросить, где гость хочет сидеть, и забронировать
+именно тот столик. Поэтому `create_reservation` принимает `table_id` из предыдущего
+ответа, а не подбирает столик сам.
 
 ### 6.1 Особенности `create_pickup_order`
 
@@ -942,9 +973,12 @@ restaurant-voice-agent/
 │       ├── session.ts          # сборка AgentSession
 │       ├── language.ts         # определение и переключение языка
 │       ├── prompts/
-│       │   ├── system.de.md
+│       │   ├── system.de.md     # инструкции поведения
 │       │   ├── system.ru.md
-│       │   └── system.en.md
+│       │   ├── system.en.md
+│       │   ├── basilik.de.md    # правила ресторана, подмешиваются в промпт
+│       │   ├── basilik.ru.md
+│       │   └── basilik.en.md
 │       ├── i18n/
 │       │   ├── de.yaml
 │       │   ├── ru.yaml
@@ -955,6 +989,7 @@ restaurant-voice-agent/
 │       │   ├── elevenlabs.ts
 │       │   └── piper.ts        # итерация 14
 │       ├── tools/
+│       │   ├── index.ts        # сборка набора инструментов сессии
 │       │   ├── client.ts       # HTTP-клиент к n8n с HMAC
 │       │   ├── reservations.ts
 │       │   ├── pickup.ts
@@ -976,6 +1011,7 @@ restaurant-voice-agent/
 │   ├── functions/              # функции отдельно от таблиц
 │   ├── roles.sql
 │   └── seed.sql
+├── demo/                       # исходные документы демо-ресторана (меню, правила)
 ├── n8n/
 │   └── workflows/              # экспортированные JSON, версионируются
 ├── piper/                      # итерация 14
@@ -1094,7 +1130,10 @@ Function-узлах.
 [x] Итерация 2   База: миграции, функции, роли, seed, тесты на гонку
                  — выполнено 15.08.2026 (спека 001). Проверено на PostgreSQL 18.6
                  в Docker: 10 файлов, 89 тестов. Оба параллельных теста §13
-                 (двойная бронь, перепродажа слота) зелёные
+                 (двойная бронь, перепродажа слота) зелёные.
+                 18.08.2026 добавлены миграция 005 (порция и КБЖУ блюда),
+                 функции find_available_tables и create_reservation_for_table,
+                 seed заменён на демо-ресторан «Базилик» из demo/*.pdf
 [ ] Итерация 3   ПЕРВЫМ ДЕЛОМ: проверка стриминга Voxtral Realtime в
                  @livekit/agents-plugin-mistralai (см. 2.3) — ВЫПОЛНЕНО
                  15.08.2026, стриминг есть, результат в docs/architecture.md.
@@ -1105,10 +1144,20 @@ Function-узлах.
                  voxtral + elevenlabs, i18n-ресурсы, форматирование дат и цен.
                  Piper НЕ поднимаем — он в итерации 14
 [ ] Итерация 5   n8n: развёртывание, HMAC-обвязка, workflows для брони и меню
-[ ] Итерация 6   Инструменты агента: бронь, отмена, меню + филлер-фразы
+[~] Итерация 6   Инструменты агента: бронь, отмена, меню + филлер-фразы
+                 — ЧАСТИЧНО 18.08.2026 (вне очереди, по указанию владельца, до
+                 итерации 5). Сделаны: packages/contracts, HTTP-клиент к n8n
+                 с HMAC и таймаутом, инструменты check_availability и
+                 create_reservation, филлер-фразы хуком, правила ресторана
+                 в промпте (basilik.*.md). НЕ сделаны: workflow n8n (итерация 5),
+                 инструменты cancel_reservation и search_menu, автотесты
+                 инструментов (отложены владельцем), мультиязычные i18n-ресурсы
 [ ] Итерация 7   Самовывоз: схема, функции, workflow, инструменты, сборка
                  корзины из речи и подтверждение вслух
-[ ] Итерация 8   Обратный звонок: резюме, workflow, Telegram-ссылка, карточки
+[~] Итерация 8   Обратный звонок: резюме, workflow, Telegram-ссылка, карточки
+                 — ЧАСТИЧНО 18.08.2026: контракт и инструмент request_callback
+                 в агенте. НЕ сделаны: workflow n8n с уведомлением в Telegram,
+                 карточки коллбэков в портале
 [~] Итерация 9   Портал: аутентификация, роли, дашборд, брони, заказы, коллбэки
                  — ЧАСТИЧНО 16.08.2026 (спека 004): Next.js 16.3.1, вход, две роли,
                  подписанная cookie, rate limit, двухслойная проверка роли. Дашборд,
@@ -1143,7 +1192,10 @@ Function-узлах.
   диалог на немецком не станет естественным: задержка около секунды, агент не
   перебивает на паузах внутри фразы. Все следующие слои только добавят задержку.
 - Итерация 5 предшествует итерации 6: сначала инфраструктура инструментов,
-  потом инструменты.
+  потом инструменты. Нарушено один раз 18.08.2026 по прямому указанию владельца
+  ради демо-кейса; последствие — инструменты существуют без вебхуков и до
+  итерации 5 всегда отвечают ошибкой транспорта. Обоснование в
+  `docs/architecture.md`.
 - После итерации 7 обязательно прогони сценарий C целиком на русском.
 
 ---

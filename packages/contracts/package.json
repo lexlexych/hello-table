@@ -1,0 +1,13 @@
+{
+  "name": "@hello-table/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Общие zod-схемы контрактов инструментов агента (docs/tool-contracts.md)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  }
+}

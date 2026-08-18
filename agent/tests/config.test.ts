@@ -10,6 +10,9 @@ function validEnv(): NodeJS.ProcessEnv {
     ELEVENLABS_API_KEY: "test-elevenlabs",
     ELEVENLABS_VOICE_ID: "test-voice",
     ELEVENLABS_MODEL: "test-model",
+    RESTAURANT_ID: "10000000-0000-0000-0000-000000000001",
+    N8N_BASE_URL: "http://localhost:5678",
+    N8N_WEBHOOK_SECRET: "0123456789abcdef0123456789abcdef",
   };
 }
 
@@ -24,6 +27,7 @@ describe("loadConfig", () => {
     expect(config.STT_MODEL).toBe("voxtral-mini-transcribe-realtime-2602");
     expect(config.LLM_MODEL).toBe("mistral-large-latest");
     expect(config.LOG_LEVEL).toBe("info");
+    expect(config.N8N_TIMEOUT_MS).toBe(8_000);
   });
 
   it("reports missing fields without printing secret values", () => {

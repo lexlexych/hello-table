@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hello-table/contracts": "workspace:*",
     "@livekit/agents": "1.6.4",
     "@livekit/agents-plugin-elevenlabs": "1.6.4",
     "@livekit/agents-plugin-livekit": "1.6.4",

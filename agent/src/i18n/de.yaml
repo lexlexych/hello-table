@@ -4,3 +4,26 @@ ai_disclosure: "Hinweis: Sie sprechen mit einem KI-gestützten Sprachassistenten
 greeting: "Guten Tag, wie kann ich Ihnen helfen?"
 goodbye: "Vielen Dank für Ihren Anruf. Auf Wiederhören."
 error_unavailable: "Entschuldigung, der Sprachdienst ist gerade nicht verfügbar. Bitte versuchen Sie es später erneut."
+
+# Füllsätze vor einem Werkzeugaufruf. Sie werden per Hook gesprochen, nicht vom Modell
+# entschieden (PROJECT.md §3.3): sonst hört der Gast während des Netzaufrufs nur Stille.
+filler_checking: "Einen Moment, ich schaue nach."
+filler_booking: "Einen Moment, ich reserviere den Tisch für Sie."
+filler_sending: "Einen Moment, ich notiere Ihre Nachricht."
+
+# Antworttexte zu den Fehlercodes der Werkzeuge. Der Webhook liefert nur den Code —
+# den Satz wählt der Agent hier, damit die Formulierung vorhersehbar bleibt.
+tool_errors:
+  timeout: "Entschuldigung, das dauert gerade zu lange. Ich kann eine Nachricht an den Manager hinterlassen, dann ruft er zurück."
+  unreachable: "Entschuldigung, das Reservierungssystem ist im Moment nicht erreichbar. Soll ich eine Nachricht an den Manager hinterlassen?"
+  invalid_response: "Entschuldigung, ich habe darauf gerade keine verlässliche Antwort. Soll ich eine Nachricht an den Manager hinterlassen?"
+  invalid_request: "Entschuldigung, da fehlt mir noch eine Angabe. Nennen Sie mir bitte Tag, Uhrzeit und die Anzahl der Gäste."
+  restaurant_not_found: "Entschuldigung, das Reservierungssystem ist im Moment nicht erreichbar. Soll ich eine Nachricht an den Manager hinterlassen?"
+  no_table_available: "Zu dieser Zeit ist leider kein Tisch frei. Möchten Sie eine andere Uhrzeit?"
+  table_not_available: "Dieser Tisch lässt sich leider nicht mehr buchen. Ich schaue gern noch einmal nach freien Tischen."
+  table_already_booked: "Dieser Tisch wurde gerade vergeben. Ich schaue gern noch einmal nach freien Tischen."
+  closed_at_requested_time: "Zu dieser Zeit haben wir leider geschlossen. Wir sind täglich von 12 bis 23 Uhr für Sie da."
+  party_too_large: "Für so viele Gäste buche ich telefonisch nicht. Ich hinterlasse gern eine Nachricht an den Manager, er meldet sich zu den Details."
+  slot_in_past: "Dieser Zeitpunkt liegt bereits in der Vergangenheit. Für wann darf ich reservieren?"
+  invalid_category: "Entschuldigung, ich konnte Ihr Anliegen nicht einordnen. Worum geht es kurz gesagt?"
+  summary_too_long: "Entschuldigung, ich fasse Ihr Anliegen noch einmal kürzer zusammen."

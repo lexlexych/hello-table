@@ -15,6 +15,7 @@ import {
 } from "./session.ts";
 import { startSessionWithDisclosure } from "./startup.ts";
 import { attachTelemetry } from "./telemetry.ts";
+import { buildTools } from "./tools/index.ts";
 
 interface ProcessData {
   vad?: VAD;
@@ -51,7 +52,11 @@ export function createAgent(config: Config) {
         });
       });
 
-      const agent = createGermanAgent(await loadSystemPrompt());
+      // Инструменты строятся после сессии: филлер-фразу произносит она же, через
+      // ctx.session внутри инструмента. Идентификатор разговора — имя комнаты LiveKit,
+      // персональных данных в нём нет.
+      const tools = buildTools(config, phrases, ctx.room.name ?? ctx.job.id);
+      const agent = createGermanAgent(await loadSystemPrompt(), tools);
       await startSessionWithDisclosure(
         session,
         buildStartOptions(agent, ctx.room),

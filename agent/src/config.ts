@@ -45,6 +45,28 @@ export const configSchema = z
       .default("false")
       .transform((value) => value === "true"),
 
+    /**
+     * Ресторан, от имени которого работает воркер. Проверяется формой строки, а не
+     * `z.uuid()`: zod 4 требует биты версии по RFC 9562, а идентификаторы демо-данных
+     * в db/seed.sql рукописные (`10000000-0000-…`) и такую проверку не проходят.
+     */
+    RESTAURANT_ID: z
+      .string()
+      .regex(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        "must be a UUID-shaped identifier",
+      ),
+
+    /** Инструменты агента — вебхуки n8n. Без этих трёх значений агент бесполезен. */
+    N8N_BASE_URL: z.url(),
+    N8N_WEBHOOK_SECRET: z.string().min(32),
+    N8N_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(30_000)
+      .default(8_000),
+
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   })
   .superRefine((config, context) => {

@@ -29,6 +29,9 @@ importers:
 
   agent:
     dependencies:
+      '@hello-table/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
       '@livekit/agents':
         specifier: 1.6.4
         version: 1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3)
@@ -50,6 +53,12 @@ importers:
       yaml:
         specifier: 2.9.0
         version: 2.9.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
+  packages/contracts:
+    dependencies:
       zod:
         specifier: 4.4.3
         version: 4.4.3

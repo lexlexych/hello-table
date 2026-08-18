@@ -8,7 +8,9 @@ describe("German system prompt", () => {
     expect(prompt).not.toBe("");
     expect(prompt).toMatch(/ein bis zwei kurzen Sätzen/i);
     expect(prompt).toMatch(/Erfinde niemals Gerichte, Preise.*freie Tische/is);
-    expect(prompt).toMatch(/keine Werkzeuge.*keine Buchungsfunktion/is);
     expect(prompt).toMatch(/immer auf Deutsch/i);
+    // Правила ресторана подмешиваются в тот же промпт (basilik.de.md).
+    expect(prompt).toMatch(/Regeln des Hauses/i);
+    expect(prompt).toMatch(/Korkgeld/i);
   });
 });

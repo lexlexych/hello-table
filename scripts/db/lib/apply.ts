@@ -114,6 +114,8 @@ export async function dropProjectFunctions(sql: Sql): Promise<void> {
   await sql
     .unsafe(`DROP FUNCTION IF EXISTS
     find_available_slots(uuid,date,int,time,int), create_reservation_atomic(uuid,timestamptz,int,text,text,char,text),
+    find_available_tables(uuid,date,time,int),
+    create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text),
     cancel_reservation_by_phone(uuid,text,date), find_menu_items(uuid,text,char,bool,bool,text[],int),
     find_pickup_slots(uuid,timestamptz,int,int), create_pickup_order_atomic(uuid,jsonb,timestamptz,text,text,char,text),
     create_callback_request(uuid,text,char,text,text), purge_expired_personal_data(),

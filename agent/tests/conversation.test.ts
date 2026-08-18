@@ -23,7 +23,7 @@ describe("German prototype conversation", () => {
       vad: null,
       turnHandling: { turnDetection: null },
     });
-    const agent = createGermanAgent(systemPrompt);
+    const agent = createGermanAgent(systemPrompt, []);
     await session.start({ agent, record: false });
 
     const result = await session.run({ userInput: "Guten Tag" }).wait();

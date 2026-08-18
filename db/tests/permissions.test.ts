@@ -84,6 +84,26 @@ describe("роль n8n_app (§3.5)", () => {
     ).rejects.toMatchObject({ code: "45000" });
   });
 
+  it("может выполнять функции выбора и брони конкретного столика", async () => {
+    await expect(
+      asRole(
+        "n8n_app",
+        (tx) => tx`SELECT * FROM find_available_tables(
+          '00000000-0000-0000-0000-000000000000'::uuid, current_date, time '19:00', 2)`,
+      ),
+    ).rejects.toMatchObject({ code: "45000" });
+
+    await expect(
+      asRole(
+        "n8n_app",
+        (tx) => tx`SELECT * FROM create_reservation_for_table(
+          '00000000-0000-0000-0000-000000000000'::uuid,
+          '00000000-0000-0000-0000-000000000000'::uuid,
+          current_date, time '19:00', 2, 'x', NULL, 'de'::char(2), 'phone')`,
+      ),
+    ).rejects.toMatchObject({ code: "45000" });
+  });
+
   it("не может вызвать функции дневной брони портала", async () => {
     for (const call of [
       "SELECT * FROM book_table_for_day('00000000-0000-0000-0000-000000000000'::uuid," +
@@ -202,6 +222,21 @@ describe("роль portal_app (§5.3)", () => {
       ).rejects.toMatchObject({ code: "45000" });
     }
   });
+
+  it("не может вызвать телефонные функции выбора и брони столика", async () => {
+    // Портал бронирует через book_table_for_day; эти две — только для n8n.
+    for (const call of [
+      "SELECT * FROM find_available_tables('00000000-0000-0000-0000-000000000000'::uuid," +
+        " current_date, time '19:00', 2)",
+      "SELECT * FROM create_reservation_for_table('00000000-0000-0000-0000-000000000000'::uuid," +
+        " '00000000-0000-0000-0000-000000000000'::uuid, current_date, time '19:00', 2," +
+        " 'x', NULL, 'de'::char(2), 'phone')",
+    ]) {
+      await expect(
+        asRole("portal_app", (tx) => tx.unsafe(call)),
+      ).rejects.toMatchObject({ code: "42501" });
+    }
+  });
 });
 
 describe("владелец схемы", () => {
@@ -220,9 +255,10 @@ describe("владелец схемы", () => {
         'find_available_slots','create_reservation_atomic','cancel_reservation_by_phone',
         'find_menu_items','find_pickup_slots','create_pickup_order_atomic',
         'create_callback_request','purge_expired_personal_data',
-        'book_table_for_day','cancel_table_booking')`;
+        'book_table_for_day','cancel_table_booking',
+        'find_available_tables','create_reservation_for_table')`;
 
-    expect(rows).toHaveLength(10);
+    expect(rows).toHaveLength(12);
     for (const row of rows) {
       expect(row.prosecdef).toBe(true);
       expect(row.owner).toBe("app_owner");

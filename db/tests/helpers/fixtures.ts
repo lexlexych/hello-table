@@ -63,10 +63,11 @@ export async function addTable(
   restaurantId: string,
   label: string,
   seats: number,
+  zone: string | null = null,
 ): Promise<string> {
   const [row] = await sql<{ id: string }[]>`
-    INSERT INTO restaurant_tables (restaurant_id, label, seats)
-    VALUES (${restaurantId}, ${label}, ${seats}) RETURNING id`;
+    INSERT INTO restaurant_tables (restaurant_id, label, seats, zone)
+    VALUES (${restaurantId}, ${label}, ${seats}, ${zone}) RETURNING id`;
   if (!row) throw new Error("table fixture was not created");
   return row.id;
 }

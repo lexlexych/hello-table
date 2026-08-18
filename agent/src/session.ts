@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { type VAD, voice } from "@livekit/agents";
+import {
+  DOMAIN_TOOL_ERRORS,
+  TRANSPORT_TOOL_ERRORS,
+} from "@hello-table/contracts";
+import { type llm, type VAD, voice } from "@livekit/agents";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as livekit from "@livekit/agents-plugin-livekit";
 import * as mistral from "@livekit/agents-plugin-mistralai";
@@ -14,6 +18,17 @@ const germanPhrasesSchema = z.object({
   ai_disclosure: z.string().trim().min(1),
   goodbye: z.string().trim().min(1),
   error_unavailable: z.string().trim().min(1),
+  filler_checking: z.string().trim().min(1),
+  filler_booking: z.string().trim().min(1),
+  filler_sending: z.string().trim().min(1),
+  /**
+   * Фраза на каждый код ошибки инструмента. Ключи проверяются схемой контрактов, а не
+   * перечисляются здесь второй раз: пропущенный код иначе всплыл бы только в разговоре.
+   */
+  tool_errors: z.record(
+    z.enum([...DOMAIN_TOOL_ERRORS, ...TRANSPORT_TOOL_ERRORS]),
+    z.string().trim().min(1),
+  ),
 });
 
 export type GermanPhrases = z.infer<typeof germanPhrasesSchema>;
@@ -74,20 +89,36 @@ export function buildStartOptions(
   return { agent, room, record: false };
 }
 
-/** Creates the tool-free, German-only agent used by this prototype. */
-export function createGermanAgent(systemPrompt: string): voice.Agent {
-  return new voice.Agent({ instructions: systemPrompt });
+/** Creates the German-only agent of this prototype together with its n8n-backed tools. */
+export function createGermanAgent(
+  systemPrompt: string,
+  tools: llm.ToolContextLike,
+): voice.Agent {
+  return new voice.Agent({ instructions: systemPrompt, tools });
 }
 
-export async function loadSystemPrompt(): Promise<string> {
-  const path = fileURLToPath(
-    new URL("./prompts/system.de.md", import.meta.url),
-  );
-  const prompt = (await readFile(path, "utf8")).trim();
-  if (!prompt) {
-    throw new Error("German system prompt is empty");
+async function readPromptFile(name: string): Promise<string> {
+  const path = fileURLToPath(new URL(`./prompts/${name}`, import.meta.url));
+  const text = (await readFile(path, "utf8")).trim();
+  if (!text) {
+    throw new Error(`prompt file is empty: ${name}`);
   }
-  return prompt;
+  return text;
+}
+
+/**
+ * Собирает системный промпт из двух частей: инструкции поведения и правил ресторана.
+ *
+ * Правила лежат отдельным файлом, потому что это данные заказчика, а не поведение агента:
+ * ресторан меняет условия отмены или corkage, не трогая инструкции. Всё остальное — часы
+ * работы, меню, свободные столики — агент узнаёт инструментами, а не из промпта.
+ */
+export async function loadSystemPrompt(language = "de"): Promise<string> {
+  const [instructions, houseRules] = await Promise.all([
+    readPromptFile(`system.${language}.md`),
+    readPromptFile(`basilik.${language}.md`),
+  ]);
+  return `${instructions}\n\n---\n\n${houseRules}`;
 }
 
 export async function loadGermanPhrases(): Promise<GermanPhrases> {
