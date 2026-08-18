@@ -1,6 +1,6 @@
 # Портал
 
-Next.js 16 (App Router), Node 24. Три раздела: тестовый звонок из браузера (спека 004),
+Next.js 16 (App Router), Node 24. Три раздела: тестовый звонок из браузера,
 столики и меню (17.08.2026, PROJECT.md §7.3 пп. 6–7). Дашборд, брони, заказы, коллбэки,
 часы и настройки — итерации 9–10.
 
@@ -157,4 +157,4 @@ pnpm test --project database
 Файлы `portal/tests/db/*.test.ts` входят в проект `database`, а не `portal`: базу
 пересоздаёт один `db/tests/global-setup.ts`, и второй проект со своим setup сносил бы её
 из-под первого. Живой звонок проверяется руками по
-`specs/004-portal-test-call/manual-tests.md`.
+`docs/manual-tests.md`.
