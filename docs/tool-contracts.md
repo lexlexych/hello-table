@@ -31,10 +31,11 @@ n8n → регистрация в агенте.
 код ответа не 2xx), `invalid_response` (ответ не по контракту). Отдельного поведения на
 каждый из них нет: агент извиняется и предлагает оставить сообщение менеджеру.
 
-**Статус.** Контракты трёх инструментов ниже определены 18.08.2026. Workflow n8n для них
-ещё не созданы (итерация 5) — до этого момента вызовы возвращают `unreachable`.
-Контракты `get_opening_hours`, `cancel_reservation`, `search_menu`, `check_pickup_slots`,
-`create_pickup_order` не определены.
+**Статус.** Контракты трёх инструментов ниже определены 18.08.2026. Workflow n8n для
+`check_availability` и `create_reservation` экспортированы в `n8n/workflows/`; после
+импорта им нужно назначить Crypto и Postgres credentials и активировать. Workflow
+`request_callback` ещё не создан. Контракты `get_opening_hours`, `cancel_reservation`,
+`search_menu`, `check_pickup_slots`, `create_pickup_order` не определены.
 
 ---
 

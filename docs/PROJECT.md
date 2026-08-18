@@ -164,7 +164,7 @@ am Samstag um acht.» → проверка, подтверждение, запи
 | Node.js | **24 LTS** | Active LTS, поддержка до 30 апреля 2028. Node 26 вышел 5 мая 2026, но до 28 октября 2026 он Current, а не LTS. Node 22 уже в Maintenance LTS и не годится для нового проекта |
 | PostgreSQL | **18** | 18.6 — актуальный стабильный (13 августа 2026). 19 пока в бете |
 | Next.js | **16** | 16.3.x — актуальная ветка. 15-я уже предыдущее поколение |
-| n8n | **2.x** | текущая мажорная ветка, минорные выходят почти еженедельно |
+| n8n | **2.33.3** | стабильный релиз на 18.08.2026; 2.34.0 в этот день помечен pre-release |
 | Caddy | **2, последний стабильный** | — |
 | `@livekit/agents` и плагины | последняя стабильная | зафиксировать точную версию в итерации 1 |
 | pnpm, biome, vitest, zod | последние стабильные | зафиксировать в итерации 1 |
@@ -312,6 +312,11 @@ n8n.<домен>       → n8n:5678       (доступ только с IP вл�
 только через Caddy с ограничением по IP — его UI позволяет выполнять
 произвольный код, и открытый в интернет n8n это готовый RCE.
 
+Локально n8n публикуется только на `127.0.0.1:5678`. На Hetzner agent-контейнер
+вызывает `http://n8n:5678` внутри Docker-сети; публичный webhook URL для
+инструментов агента не нужен. UI на `n8n.<домен>` появится вместе с Caddy в
+итерации 12 и останется доступен только с IP владельца.
+
 ### 3.2 Путь данных звонка
 
 ```
@@ -370,13 +375,13 @@ Google-календарём. n8n — это клей, а не источник �
 
 ```
 agent.tool("create_reservation")
-   → POST https://n8n.<домен>/webhook/reservation.create   (+ HMAC-подпись)
+   → POST http://n8n:5678/webhook/reservation.create   (+ HMAC-подпись)
         → n8n workflow:
-             1. валидация входа
-             2. вызов create_reservation_atomic() в Postgres
-             3. при успехе — Telegram-уведомление оператору
-             4. формирование ответа для агента
-   ← { ok: true, reservation_id, table_label, confirmed_time }
+             1. проверка HMAC-SHA256 исходного тела
+             2. валидация входа
+             3. вызов create_reservation_for_table() в Postgres
+             4. формирование типизированного ответа
+   ← { ok: true, reservation_id, table_label, starts_at, ends_at }
 ```
 
 ⚠️ Ответ вебхука должен быть **строго типизированной структурой**, а не
@@ -662,9 +667,9 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 Состояние на 18.08.2026: контракты, zod-схемы и регистрация в агенте сделаны для трёх
 инструментов — `check_availability`, `create_reservation`, `request_callback`. Сделаны
 раньше своей очереди, по указанию владельца, ради демо-кейса «Базилик»: обоснование —
-`docs/architecture.md`. Workflow n8n для них ещё нет (итерация 5), поэтому вызовы
-возвращают транспортную ошибку `unreachable`, а агент извиняется и предлагает оставить
-сообщение менеджеру.
+`docs/architecture.md`. Для `check_availability` и `create_reservation` экспортированы
+workflow n8n с HMAC, валидацией, Postgres RPC и типизированным ответом. Workflow
+`request_callback` ещё не сделан.
 
 `check_availability` отвечает не слотами, а списком свободных столиков с зоной на
 названное гостем время: агент обязан спросить, где гость хочет сидеть, и забронировать
@@ -901,7 +906,7 @@ n8n локально.
 
 ```yaml
 postgres:  mem_limit: 1g     # shared_buffers 512MB, max_connections 40
-n8n:       mem_limit: 1g     # EXECUTIONS_DATA_PRUNE=true, MAX_AGE=168h
+n8n:       mem_limit: 1g     # payload executions не сохраняется, pruning включён
 portal:    mem_limit: 512m   # NODE_OPTIONS=--max-old-space-size=384
 livekit:   mem_limit: 512m
 sip:       mem_limit: 256m
@@ -1013,7 +1018,8 @@ restaurant-voice-agent/
 │   └── seed.sql
 ├── demo/                       # исходные документы демо-ресторана (меню, правила)
 ├── n8n/
-│   └── workflows/              # экспортированные JSON, версионируются
+│   ├── README.md               # локальный запуск, credentials, импорт и Hetzner
+│   └── workflows/              # reservation-check/create.json, версионируются
 ├── piper/                      # итерация 14
 │   ├── Dockerfile
 │   └── server.ts
@@ -1143,14 +1149,19 @@ Function-узлах.
 [ ] Итерация 4   Мультиязычность: определение языка, TTS-роутер с реализациями
                  voxtral + elevenlabs, i18n-ресурсы, форматирование дат и цен.
                  Piper НЕ поднимаем — он в итерации 14
-[ ] Итерация 5   n8n: развёртывание, HMAC-обвязка, workflows для брони и меню
+[~] Итерация 5   n8n: развёртывание, HMAC-обвязка, workflows для брони и меню
+                 — ЧАСТИЧНО 18.08.2026. Сделаны: self-hosted n8n 2.33.3 в
+                 dev/prod Compose, локальные команды запуска, HMAC-обвязка и
+                 workflow reservation.check / reservation.create. НЕ сделаны:
+                 workflow часов, отмены и меню; Caddy и фактический деплой на
+                 Hetzner остаются в итерации 12
 [~] Итерация 6   Инструменты агента: бронь, отмена, меню + филлер-фразы
                  — ЧАСТИЧНО 18.08.2026 (вне очереди, по указанию владельца, до
                  итерации 5). Сделаны: packages/contracts, HTTP-клиент к n8n
                  с HMAC и таймаутом, инструменты check_availability и
                  create_reservation, филлер-фразы хуком, правила ресторана
-                 в промпте (basilik.*.md). НЕ сделаны: workflow n8n (итерация 5),
-                 инструменты cancel_reservation и search_menu, автотесты
+                 в промпте (basilik.*.md); workflow n8n для поиска и создания
+                 брони. НЕ сделаны: инструменты cancel_reservation и search_menu, автотесты
                  инструментов (отложены владельцем), мультиязычные i18n-ресурсы
 [ ] Итерация 7   Самовывоз: схема, функции, workflow, инструменты, сборка
                  корзины из речи и подтверждение вслух

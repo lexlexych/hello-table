@@ -30,7 +30,7 @@ services:
       # 55432, а не 5432: на машине разработчика уже может стоять нативный
       # PostgreSQL, который держит стандартный порт. На сервере это не важно —
       # там postgres вообще не публикуется наружу (PROJECT.md §3.1).
-      - "55432:5432"
+      - "127.0.0.1:55432:5432"
     volumes:
       - pgdata-dev:/var/lib/postgresql
     healthcheck:
@@ -39,5 +39,53 @@ services:
       timeout: 3s
       retries: 20
 
+  n8n:
+    image: n8nio/n8n:2.33.3
+    restart: unless-stopped
+    mem_limit: 1g
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # UI и webhook доступны только с компьютера владельца, не из локальной сети.
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-hello-table-local-only-not-for-production}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "false"
+      N8N_RUNNERS_TASK_TIMEOUT: 60
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: 268435456
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: 1000
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 168
+      GENERIC_TIMEZONE: Europe/Berlin
+      TZ: Europe/Berlin
+    volumes:
+      - n8n-data-dev:/home/node/.n8n
+      - ../n8n/workflows:/workflows:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5678/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
 volumes:
   pgdata-dev:
+  n8n-data-dev:

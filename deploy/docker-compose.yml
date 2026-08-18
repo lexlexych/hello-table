@@ -33,11 +33,57 @@ services:
     build: ../agent # Dockerfile появится в итерации 3
     mem_limit: 4g # супервизор + процессы сессий звонков
     restart: unless-stopped
+    environment:
+      # На Hetzner агент ходит к n8n по внутренней Docker-сети, без публичного webhook URL.
+      N8N_BASE_URL: http://n8n:5678
 
   n8n:
-    image: n8nio/n8n # версию ветки 2.x зафиксировать в итерации 5
-    mem_limit: 1g # EXECUTIONS_DATA_PRUNE=true, EXECUTIONS_DATA_MAX_AGE=168
+    image: n8nio/n8n:2.33.3
+    mem_limit: 1g
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "5678"
+    environment:
+      N8N_HOST: n8n.${DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://n8n.${DOMAIN}/
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      N8N_SECURE_COOKIE: "true"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Set N8N_ENCRYPTION_KEY in .env}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "false"
+      N8N_RUNNERS_TASK_TIMEOUT: 60
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: 268435456
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: 1000
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 168
+      GENERIC_TIMEZONE: Europe/Berlin
+      TZ: Europe/Berlin
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ../n8n/workflows:/workflows:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5678/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     # наружу не публикуется; доступ только через Caddy с ограничением по IP владельца
 
   postgres:
@@ -45,6 +91,11 @@ services:
     mem_limit: 1g # shared_buffers 512MB, max_connections 40
     restart: unless-stopped
     # наружу не публикуется; только внутри docker-сети
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   portal:
     build: ../portal # Dockerfile появится в итерации 9
@@ -54,3 +105,6 @@ services:
 
 # piper (TTS ru, mem_limit ~256m) добавляется в итерации 14 — docs/PROJECT.md §2.2
 # На сервере дополнительно: swap 2 ГБ (страховка от OOM-kill), фаервол по §8.3
+
+volumes:
+  n8n-data:
