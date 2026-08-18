@@ -56,11 +56,10 @@ API-ключи и внешняя сеть тестам не нужны. Разр
 
 ## Голосовой агент
 
-Агент использует локальный LiveKit, ElevenLabs Scribe v2 realtime STT, OpenAI
-`gpt-5.6-terra` LLM,
-ElevenLabs TTS и Silero VAD. Разговор начинается на `AGENT_DEFAULT_LANGUAGE` и дальше идёт
+Агент использует локальный LiveKit, OpenAI `gpt-transcribe`, `gpt-5.6-terra` LLM,
+OpenAI `tts-1` и Silero VAD. Разговор начинается на `AGENT_DEFAULT_LANGUAGE` и дальше идёт
 на языке гостя — de, ru или en. Скопируйте `.env.example` в корневой `.env` и заполните
-секции LiveKit, OpenAI, ElevenLabs и поведения агента. Runtime-команды агента и dev-token загружают этот
+секции LiveKit, OpenAI и поведения агента. Runtime-команды агента и dev-token загружают этот
 файл через Node 24 `--env-file-if-exists`; вручную экспортировать переменные не нужно.
 `agent:download-files` конфиг и секреты не читает. Затем:
 
@@ -76,8 +75,8 @@ pnpm agent:dev
 pnpm dev:token -- test-room browser-user
 ```
 
-Команда печатает URL локального LiveKit, комнату, identity и токен. Реальные OpenAI и
-ElevenLabs используются только в ручной проверке владельцем; `pnpm test --project agent`
+Команда печатает URL локального LiveKit, комнату, identity и токен. Реальные модели OpenAI
+используются только в ручной проверке владельцем; `pnpm test --project agent`
 работает на `FakeLLM`, удаляет ключи из окружения и не выполняет внешних запросов. Детали и
 меры приватности — в `agent/README.md`.
 

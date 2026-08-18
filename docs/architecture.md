@@ -22,9 +22,8 @@
 | postgres.js | 3.4.9 | 15.08.2026 | драйвер раннера и тестов |
 | `@types/node` | 24.13.3 | 15.08.2026 | намеренно ветка 24, а не 26: типы должны соответствовать рантайму |
 | `@livekit/agents` | 1.6.4 | 15.08.2026 | установлен; `record: false` проверен автотестом |
-| `@livekit/agents-plugin-openai` | 1.6.4 | 18.08.2026 | LLM через streaming Chat Completions; function tools из zod-схем |
+| `@livekit/agents-plugin-openai` | 1.6.4 | 18.08.2026 | STT `gpt-transcribe`, LLM через streaming Chat Completions, TTS `tts-1` |
 | `@livekit/agents-plugin-silero` | 1.6.4 | 15.08.2026 | эндпоинтинг и прерывания сессии; realtime-STT в нём больше не нуждается |
-| `@livekit/agents-plugin-elevenlabs` | 1.6.4 | 18.08.2026 | STT (`scribe_v2_realtime`) и TTS; оба с `enableLogging: false` |
 | `@livekit/agents-plugin-livekit` | 1.6.4 | 15.08.2026 | turn detector |
 | `@livekit/rtc-node` | 0.13.33 | 15.08.2026 | зафиксированная peer-зависимость LiveKit-пакетов |
 | `openai` | 6.49.0 | 18.08.2026 | транзитивный SDK OpenAI-плагина и LiveKit Agents |
@@ -41,6 +40,33 @@
 | postgres.js (портал) | 3.4.9 | 17.08.2026 | та же версия, что у раннера миграций; портал ходит в базу ролью `portal_app` |
 
 ## Результаты обязательных проверок
+
+### Переход STT и TTS с ElevenLabs на OpenAI (18.08.2026)
+
+По решению владельца тестовая голосовая цепочка переведена на `gpt-transcribe` и `tts-1`.
+Обе модели подключены существующим `@livekit/agents-plugin-openai` 1.6.4; отдельный SDK и
+второй API-ключ больше не нужны. Плагин ElevenLabs и его локальный patch удалены.
+
+`gpt-transcribe` выбран вместо `gpt-realtime-whisper`, потому что финальное событие модели
+содержит определённые языки. Это сохраняет текущий контракт `LanguageTracker`, выбор
+фиксированных i18n-фраз и запись `reservations.language`. `AGENT_ENABLED_LANGUAGES`
+передаётся как список language hints, `detectLanguage: false` не запрещает модели вернуть
+фактический язык, а только не даёт плагину удалить эти hints из конфигурации. Реплику
+коммитит server VAD OpenAI с порогом `STT_VAD_SILENCE_THRESHOLD_MS`.
+
+`tts-1` выбран как модель OpenAI, оптимизированная под минимальную задержку. Общий голос
+задаётся `TTS_VOICE`, переопределения DE/RU/EN сохранены. Сам Speech API поддерживает
+chunked streaming, но Node-плагин 1.6.4 объявляет `streaming: false` и читает весь
+`arrayBuffer()` до выдачи аудиофреймов. Поэтому задержка первого звука — обязательная
+ручная проверка; streaming-адаптер не добавлялся в объём этой задачи.
+
+Один `OPENAI_BASE_URL` применяется к STT, LLM и TTS. Официальная региональная матрица
+подтверждает EU processing для `tts-1`, но не перечисляет `gpt-transcribe` для Realtime
+transcription sessions. До подтверждения живым запросом из EU-проекта эта конфигурация
+разрешена только для синтетических тестов без персональных данных.
+
+По явному указанию владельца автоматические и ручные проверки в этой задаче не запускались;
+пригодность цепочки он оценивает самостоятельным звонком по `docs/manual-tests.md` §4.
 
 ### Немецкий прототип агента — локальная автоматическая проверка (спека 002)
 

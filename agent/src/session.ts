@@ -6,7 +6,6 @@ import {
   TRANSPORT_TOOL_ERRORS,
 } from "@hello-table/contracts";
 import { type llm, type VAD, voice } from "@livekit/agents";
-import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
 import * as livekit from "@livekit/agents-plugin-livekit";
 import * as openai from "@livekit/agents-plugin-openai";
 import type { Room } from "@livekit/rtc-node";
@@ -45,69 +44,60 @@ export interface SessionLanguageState {
   phrases: Phrases;
 }
 
-/** Голос ElevenLabs для языка; при незаполненном языковом голосе — общий. */
-export function voiceIdFor(cfg: Config, language: Language): string {
-  const perLanguage: Record<Language, string | undefined> = {
-    de: cfg.ELEVENLABS_VOICE_ID_DE,
-    ru: cfg.ELEVENLABS_VOICE_ID_RU,
-    en: cfg.ELEVENLABS_VOICE_ID_EN,
+/** Голос OpenAI TTS для языка; при незаполненном языковом голосе — общий. */
+export function ttsVoiceFor(
+  cfg: Config,
+  language: Language,
+): Config["TTS_VOICE"] {
+  const perLanguage: Record<Language, Config["TTS_VOICE"] | undefined> = {
+    de: cfg.TTS_VOICE_DE,
+    ru: cfg.TTS_VOICE_RU,
+    en: cfg.TTS_VOICE_EN,
   };
-  return perLanguage[language] ?? cfg.ELEVENLABS_VOICE_ID;
+  return perLanguage[language] ?? cfg.TTS_VOICE;
 }
 
 /**
- * Распознавание речи. Язык намеренно НЕ задаётся: только без `languageCode` плагин
- * включает `include_language_detection=true`, и распознанный язык доезжает до
- * `UserInputTranscribed.language` — на нём построено переключение языка (PROJECT.md §4.1).
+ * Распознавание речи через OpenAI Realtime transcription API.
+ *
+ * В `language` передаются все включённые языки как hints. `gpt-transcribe` всё равно
+ * возвращает фактически распознанный язык в финальном событии; LiveKit переносит его в
+ * `UserInputTranscribed.language`, на котором построено переключение ресурсов (§4.1).
  */
-export function buildStt(cfg: Config): elevenlabs.STT {
-  const sttOptions: elevenlabs.STTOptions = {
-    apiKey: cfg.ELEVENLABS_API_KEY,
+export function buildStt(cfg: Config): openai.STT {
+  const sttOptions: Partial<openai.STTOptions> = {
+    apiKey: cfg.OPENAI_API_KEY,
     model: cfg.STT_MODEL,
-    // По умолчанию плагин шлёт enable_logging=true, то есть провайдер хранит аудио и
-    // расшифровки у себя. PROJECT.md §0.4 и §11.3 этого не допускают.
-    enableLogging: false,
-    // Без пометок вида «(laughter)» в тексте: он уходит в LLM как реплика гостя.
-    tagAudioEvents: false,
-    /**
-     * Серверный VAD ОБЯЗАТЕЛЕН, без него агент не отвечает вообще.
-     *
-     * Заданный `serverVad` переводит соединение в `commit_strategy=vad`, и Scribe сам
-     * закрывает сегмент по тишине: присылает `committed_transcript`, из которого плагин
-     * делает FINAL_TRANSCRIPT и END_OF_SPEECH. Без него режим `manual`, а команду
-     * коммита плагин шлёт только на FLUSH_SENTINEL во входном потоке — фреймворк его
-     * не отправляет никогда. В итоге приходят только промежуточные расшифровки, реплика
-     * гостя не закрывается, ход не фиксируется и агент молчит, дописывая следующую фразу
-     * к той же незакрытой. Разбор — docs/architecture.md.
-     */
-    serverVad: {
-      vadSilenceThresholdSecs: cfg.STT_VAD_SILENCE_THRESHOLD_MS / 1_000,
+    useRealtime: true,
+    language: cfg.AGENT_ENABLED_LANGUAGES,
+    detectLanguage: false,
+    turnDetection: {
+      type: "server_vad",
+      silence_duration_ms: cfg.STT_VAD_SILENCE_THRESHOLD_MS,
     },
   };
-  if (cfg.ELEVENLABS_BASE_URL !== undefined) {
-    sttOptions.baseURL = cfg.ELEVENLABS_BASE_URL;
+  if (cfg.OPENAI_BASE_URL !== undefined) {
+    sttOptions.baseURL = cfg.OPENAI_BASE_URL;
   }
-  return new elevenlabs.STT(sttOptions);
+  return new openai.STT(sttOptions);
 }
 
 /**
- * Синтез речи мультиязычной моделью ElevenLabs.
+ * Синтез речи моделью OpenAI `tts-1`.
  *
- * Язык намеренно не задаётся: модель определяет его по тексту ответа GPT. Иначе пустой
- * `language` от STT оставлял TTS в стартовом русском режиме даже для немецкого ответа.
- * Аргумент `language` нужен только для выбора голосового профиля.
+ * Модель определяет язык по тексту ответа GPT. Аргумент `language` нужен только для
+ * выбора голосового профиля.
  */
-export function buildTts(cfg: Config, language: Language): elevenlabs.TTS {
-  const ttsOptions: elevenlabs.TTSOptions = {
-    apiKey: cfg.ELEVENLABS_API_KEY,
-    voiceId: voiceIdFor(cfg, language),
-    model: cfg.ELEVENLABS_MODEL,
-    enableLogging: false,
+export function buildTts(cfg: Config, language: Language): openai.TTS {
+  const ttsOptions: Partial<openai.TTSOptions> = {
+    apiKey: cfg.OPENAI_API_KEY,
+    voice: ttsVoiceFor(cfg, language),
+    model: cfg.TTS_MODEL,
   };
-  if (cfg.ELEVENLABS_BASE_URL !== undefined) {
-    ttsOptions.baseURL = cfg.ELEVENLABS_BASE_URL;
+  if (cfg.OPENAI_BASE_URL !== undefined) {
+    ttsOptions.baseURL = cfg.OPENAI_BASE_URL;
   }
-  return new elevenlabs.TTS(ttsOptions);
+  return new openai.TTS(ttsOptions);
 }
 
 /**
@@ -119,8 +109,8 @@ export function buildTts(cfg: Config, language: Language): elevenlabs.TTS {
 export function buildSessionOptions(
   cfg: Config,
   vad: VAD,
-  stt: elevenlabs.STT,
-  tts: elevenlabs.TTS,
+  stt: openai.STT,
+  tts: openai.TTS,
 ): voice.AgentSessionOptions {
   const turnDetection =
     cfg.AGENT_TURN_DETECTOR === "multilingual"

@@ -3,9 +3,9 @@ import { LANGUAGES, type Language } from "@hello-table/contracts";
 /**
  * Определение и переключение языка разговора — правила PROJECT.md §4.1.
  *
- * Сам язык распознаёт STT: ElevenLabs Scribe v2 realtime возвращает `language_code`, а
- * фреймворк кладёт его в `UserInputTranscribed.language`. Здесь только решается, когда
- * этому коду верить и когда менять язык сессии.
+ * Сам язык распознаёт STT: OpenAI `gpt-transcribe` возвращает массив определённых языков,
+ * а фреймворк кладёт первый код в `UserInputTranscribed.language`. Здесь только решается,
+ * когда этому коду верить и когда менять язык сессии.
  */
 
 const enabledLanguages: readonly string[] = LANGUAGES;

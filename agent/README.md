@@ -5,20 +5,19 @@ Postgres RPC. n8n процесс агента не вызывает. Аудио 
 `AgentSession.start()` всегда получает явный `record: false`.
 
 Разговор начинается на `AGENT_DEFAULT_LANGUAGE`. Дальше язык определяет распознавание
-(ElevenLabs Scribe возвращает его в `UserInputTranscribed.language`), а `LanguageTracker`
+(`gpt-transcribe` возвращает его в `UserInputTranscribed.language`), а `LanguageTracker`
 в `src/language.ts` решает, когда переключиться: не раньше чем через
 `AGENT_LANGUAGE_SWITCH_AFTER` подряд идущих реплик на другом языке, чтобы одно иностранное
-слово не меняло язык. Смена языка меняет системный промпт, правила ресторана, фиксированные
-фразы, филлеры, тексты ошибок и голос TTS.
+слово не меняло язык. Смена языка меняет фиксированные фразы, филлеры, тексты ошибок и
+голосовой профиль TTS; единый системный промпт остаётся неизменным.
 
 ## Требования
 
 - Node.js 24 и pnpm 11;
 - Docker Compose для локального LiveKit;
-- реальные тестовые ключи OpenAI (LLM) и ElevenLabs (STT и TTS) только для ручного
-  разговора;
-- выбранные в ElevenLabs voice id и **обязательно multilingual** model id: немультиязычная
-  модель озвучит русский и английский с немецкой артикуляцией;
+- реальный тестовый ключ OpenAI для STT, LLM и TTS — только для ручного разговора;
+- выбранный голос OpenAI `tts-1`; один голос можно использовать для всех языков либо
+  переопределить через `TTS_VOICE_DE`, `TTS_VOICE_RU`, `TTS_VOICE_EN`;
 - локальный PostgreSQL с миграциями и seed, строка `AGENT_DATABASE_URL` под ролью `agent_app`;
 - микрофон и браузерный LiveKit-клиент.
 
@@ -27,9 +26,7 @@ Postgres RPC. n8n процесс агента не вызывает. Аудио 
 `--env-file-if-exists`, поэтому экспортировать переменные в каждой оболочке не нужно.
 `agent:download-files` и Vitest `.env` не читают. Для локального `livekit --dev`
 используются только известные dev-ключи
-`devkey` / `secret`; никогда не переносите их в production. `ELEVENLABS_BASE_URL` не
-задавайте пустой строкой: либо укажите полный EU-residency URL своего тарифа, либо не
-объявляйте переменную. То же правило действует для `OPENAI_BASE_URL`: обычный проект
+`devkey` / `secret`; никогда не переносите их в production. `OPENAI_BASE_URL`: обычный проект
 использует стандартный адрес, а `https://eu.api.openai.com/v1` — только OpenAI-проект с
 включёнными EU data residency и ZDR.
 

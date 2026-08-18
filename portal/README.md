@@ -55,7 +55,7 @@ Next.js 16 (App Router), Node 24. Три раздела: тестовый зво
 
 ## Запуск
 
-Нужны заполненный корневой `.env` (секции Postgres, LiveKit, OpenAI, ElevenLabs, Портал)
+Нужны заполненный корневой `.env` (секции Postgres, LiveKit, OpenAI и Портал)
 и поднятая база. Для тестового звонка дополнительно `pnpm livekit:up` и `pnpm agent:dev`.
 
 ```powershell

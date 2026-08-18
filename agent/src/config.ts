@@ -1,18 +1,27 @@
 import { languageSchema } from "@hello-table/contracts";
 import { z } from "zod";
 
-/**
- * Голоса ElevenLabs на язык. Пустое значение означает «взять общий ELEVENLABS_VOICE_ID»:
- * на одном мультиязычном голосе система работает целиком, а разные голоса на языки —
- * вопрос бренда, а не техники.
- */
-const optionalVoiceId = z
+const ttsVoiceSchema = z.enum([
+  "alloy",
+  "ash",
+  "coral",
+  "echo",
+  "fable",
+  "nova",
+  "onyx",
+  "sage",
+  "shimmer",
+]);
+
+/** Пустое значение означает «взять общий TTS_VOICE». */
+const optionalTtsVoice = z
   .string()
   .trim()
   .optional()
   .transform((value) =>
     value === undefined || value === "" ? undefined : value,
-  );
+  )
+  .pipe(ttsVoiceSchema.optional());
 
 export const configSchema = z
   .object({
@@ -32,36 +41,19 @@ export const configSchema = z
       .enum(["none", "minimal", "low", "medium", "high"])
       .default("none"),
 
-    ELEVENLABS_API_KEY: z.string().min(1),
-    ELEVENLABS_VOICE_ID: z.string().min(1),
-    ELEVENLABS_VOICE_ID_DE: optionalVoiceId,
-    ELEVENLABS_VOICE_ID_RU: optionalVoiceId,
-    ELEVENLABS_VOICE_ID_EN: optionalVoiceId,
-    ELEVENLABS_MODEL: z.string().min(1),
-    ELEVENLABS_BASE_URL: z.url().optional(),
-
-    /**
-     * Распознавание речи тоже идёт через ElevenLabs. Пакетные модели Scribe объявляют
-     * `streaming: false`, и разговор с ними развалится в рантайме, поэтому они
-     * отвергаются здесь, а не выясняются на звонке.
-     */
-    STT_MODEL: z
-      .string()
-      .min(1)
-      .default("scribe_v2_realtime")
-      .refine((value) => value !== "scribe_v1" && value !== "scribe_v2", {
-        message:
-          "must be a realtime model such as scribe_v2_realtime: batch Scribe models do not stream",
-      }),
+    STT_MODEL: z.literal("gpt-transcribe").default("gpt-transcribe"),
+    TTS_MODEL: z.literal("tts-1").default("tts-1"),
+    TTS_VOICE: ttsVoiceSchema.default("alloy"),
+    TTS_VOICE_DE: optionalTtsVoice,
+    TTS_VOICE_RU: optionalTtsVoice,
+    TTS_VOICE_EN: optionalTtsVoice,
 
     /**
      * Сколько миллисекунд тишины считается концом реплики гостя.
      *
-     * Это порог **серверного VAD ElevenLabs**, а не эндпоинтинга фреймворка. Именно он
-     * заставляет Scribe закоммитить сегмент и отдать финальную расшифровку: без
-     * серверного VAD плагин работает в режиме `commit_strategy=manual` и не коммитит
-     * никогда, потому что фреймворк не шлёт ему FLUSH_SENTINEL. Разбор —
-     * docs/architecture.md.
+     * Это порог серверного VAD OpenAI Realtime transcription API, а не эндпоинтинга
+     * фреймворка. После этой паузы сервис коммитит реплику и отдаёт финальную
+     * расшифровку вместе с определённым языком.
      */
     STT_VAD_SILENCE_THRESHOLD_MS: z.coerce
       .number()

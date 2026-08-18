@@ -18,7 +18,7 @@ import {
   loadSystemPrompt,
   resourceFor,
   type SessionLanguageState,
-  voiceIdFor,
+  ttsVoiceFor,
 } from "./session.ts";
 import { startSessionWithDisclosure } from "./startup.ts";
 import { attachTelemetry } from "./telemetry.ts";
@@ -37,8 +37,8 @@ export function createAgent(config: Config) {
   );
   return defineAgent<ProcessData>({
     prewarm: async (proc) => {
-      // Silero больше не нужен распознаванию — ElevenLabs Scribe realtime стримит сам, — но
-      // остаётся источником эндпоинтинга и прерываний для сессии.
+      // OpenAI STT использует серверный VAD для коммита реплики. Silero остаётся
+      // источником прерываний и эндпоинтинга для сессии.
       proc.userData.vad = await silero.VAD.load();
     },
 
@@ -105,7 +105,7 @@ export function createAgent(config: Config) {
 
         state.language = language;
         state.phrases = resourceFor(phrasesByLanguage, language);
-        tts.updateOptions({ voiceId: voiceIdFor(config, language) });
+        tts.updateOptions({ voice: ttsVoiceFor(config, language) });
         // В лог уходит только код языка: транскрипты логировать запрещено (§0.4).
         log().info({ language }, "agent_language_switched");
       });
