@@ -103,6 +103,11 @@
 настройки) и оператор (брони и заказы на самовывоз, обработка запросов на
 обратный звонок). Плюс возможность протестировать агента звонком из браузера.
 
+Отдельное публичное приложение `website` — лендинг ресторана «Базилик» на Next.js 16.
+Оно показывает меню на немецком, русском и английском, знакомит гостя с рестораном и
+позволяет проверить свободные столики и оформить бронь через HMAC-защищённые workflow n8n.
+Это не часть административного `portal`: у приложений разные маршруты, конфигурация и сборка.
+
 ### 1.2 Ключевые сценарии
 
 **A. Бронь на немецком.** «Guten Tag, ich möchte einen Tisch für vier Personen
@@ -150,6 +155,7 @@ ruft Sie innerhalb von 30 Minuten zurück.» В текущем прототип�
 | База | PostgreSQL 18 в Docker с volume | Hetzner |
 | Инструменты агента | TypeScript-обёртки → Postgres RPC | процесс агента + Hetzner Postgres |
 | Портал | Next.js 16, App Router | Hetzner, Docker |
+| Публичный сайт | Next.js 16, App Router | Hetzner, Docker (маршрутизация — итерация 12) |
 | Прокси и TLS | Caddy 2, последний стабильный | Hetzner, Docker |
 | Уведомления | Telegram Bot API через n8n | — |
 
@@ -289,6 +295,7 @@ piper          :5002 (internal) HTTP TTS для русского — ОТЛОЖ�
 n8n            :5678 (internal) workflow из чата и формуляров
 postgres       :5432 (internal) данные
 portal         :3000 (internal) Next.js
+website        :3001 (internal) Next.js, публичный лендинг
 ```
 
 Поддомены:
@@ -296,6 +303,7 @@ portal         :3000 (internal) Next.js
 ```
 livekit.<домен>   → livekit:7880   (wss)
 app.<домен>       → portal:3000
+<домен>           → website:3001
 n8n.<домен>       → n8n:5678       (доступ только с IP владельца)
 ```
 
@@ -494,7 +502,7 @@ reservations
   guest_name, guest_phone, party_size int,
   starts_at timestamptz, ends_at timestamptz,
   status: confirmed | cancelled | no_show | seated,
-  source: phone | portal | test,
+  source: phone | portal | website | test,
   language char(2), notes, created_at, delete_after date
 
 pickup_orders
@@ -667,9 +675,10 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 
 Состояние на 19.08.2026: в агенте зарегистрированы `check_availability`,
 `create_reservation` и `search_menu`; они напрямую вызывают Postgres RPC. Ранее созданные
-workflow `reservation.check` и `reservation.create` остаются в n8n для будущего запуска
-из чата или формуляра и в этой задаче не дорабатываются. `request_callback` снят с
-регистрации: его прямой путь и Telegram-интеграция будут реализованы отдельной задачей.
+workflow `reservation.check` и `reservation.create` используются публичным сайтом через
+его серверные route handlers; HMAC-секрет в браузер не передаётся. Создание из этого
+workflow пишет `reservations.source = 'website'`. `request_callback` снят с регистрации:
+его прямой путь и Telegram-интеграция будут реализованы отдельной задачей.
 
 `check_availability` отвечает не слотами, а списком свободных столиков с зоной на
 названное гостем время: агент обязан спросить, где гость хочет сидеть, и забронировать
@@ -1023,6 +1032,12 @@ restaurant-voice-agent/
 │   │   ├── auth.ts
 │   │   └── rbac.ts
 │   └── scripts/hash-password.ts
+├── website/                    # отдельный публичный Next.js 16 лендинг ресторана
+│   ├── app/                    # страница и серверные API бронирования
+│   ├── components/             # интерактивное меню, языки, форма брони
+│   ├── lib/                    # каталог из PDF, zod-схемы, HMAC-клиент n8n
+│   ├── public/images/          # сгенерированные фотографии ресторана
+│   └── tests/
 ├── db/
 │   ├── migrations/
 │   ├── functions/              # функции отдельно от таблиц
@@ -1224,6 +1239,10 @@ Function-узлах.
                  перевод русского TTS на self-hosted Piper (или подтверждение
                  OpenAI EU data residency + ZDR + DPA)
 [ ] Итерация 15  Эксплуатация: мониторинг, алерты, бэкапы, runbook
+[x] Итерация 16  Публичный сайт «Базилик»: отдельный Next.js-лендинг, меню из
+                 demo/Basilik_Menu.pdf, фотографии ресторана и бронирование через n8n
+                 — выполнено 19.08.2026. Автотесты, статические проверки, сборка и
+                 ручной запуск не выполнялись по прямому указанию владельца
 ```
 
 ### Правила по итерациям

@@ -4,6 +4,7 @@ dist/
 .next/
 *.tsbuildinfo
 coverage/
+tmp/
 
 # секреты — реальные env-файлы не коммитятся никогда
 .env

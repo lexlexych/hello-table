@@ -2,6 +2,7 @@ packages:
   - packages/*
   - agent
   - portal
+  - website
 allowBuilds:
   '@livekit/local-inference': true
   esbuild: true
