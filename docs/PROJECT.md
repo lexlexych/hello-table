@@ -572,6 +572,10 @@ find_menu_items(restaurant, query text, lang char(2), vegan_only, vegetarian_onl
                 exclude_allergens text[], limit)
   → позиции, только is_available = true; поиск по name_* и aliases
 
+get_current_menu(restaurant, lang char(2))
+  → все is_available = true позиции с локализованной категорией, составом, ценой,
+     аллергенами, vegetarian/vegan, порцией и КБЖУ (если они заполнены)
+
 find_pickup_slots(restaurant, earliest timestamptz, prep_minutes int, limit)
   → (slot_time timestamptz, free_capacity int) с учётом pickup_slot_capacity
 
@@ -604,8 +608,9 @@ cancel_table_booking(restaurant, table, date) → int
 Все функции — `SECURITY DEFINER`, владелец `app_owner`, права `EXECUTE` выдаются
 по вызывающему приложению. `find_available_tables` и `create_reservation_for_table`
 разрешены `agent_app` и `n8n_app`: первая роль обслуживает голосовой звонок напрямую,
-вторая сохраняет существующие workflow для чата и формуляров. `book_table_for_day` и
-`cancel_table_booking` разрешены только `portal_app`.
+вторая сохраняет существующие workflow для чата и формуляров. `get_current_menu`
+разрешена только `agent_app`. `book_table_for_day` и `cancel_table_booking` разрешены
+только `portal_app`.
 
 ⚠️ Уточнения, зафиксированные спекой 001:
 
@@ -655,16 +660,16 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 | `check_availability` | `find_available_tables(...)` | Свободные столики с зонами |
 | `create_reservation` | `create_reservation_for_table(...)` | Атомарная бронь |
 | `cancel_reservation` | не реализован | Отмена по телефону и дате |
-| `search_menu` | не реализован | Поиск блюд, аллергены, цены |
+| `search_menu` | `get_current_menu(...)` | Полное актуальное меню по категориям |
 | `check_pickup_slots` | не реализован | Когда можно забрать заказ |
 | `create_pickup_order` | не реализован | Оформление самовывоза |
 | `request_callback` | временно не зарегистрирован | Резюме + Telegram оператору |
 
-Состояние на 18.08.2026: в агенте зарегистрированы `check_availability` и
-`create_reservation`; они напрямую вызывают Postgres RPC. Ранее созданные workflow
-`reservation.check` и `reservation.create` остаются в n8n для будущего запуска из чата
-или формуляра и в этой задаче не дорабатываются. `request_callback` снят с регистрации:
-его прямой путь и Telegram-интеграция будут реализованы отдельной задачей.
+Состояние на 19.08.2026: в агенте зарегистрированы `check_availability`,
+`create_reservation` и `search_menu`; они напрямую вызывают Postgres RPC. Ранее созданные
+workflow `reservation.check` и `reservation.create` остаются в n8n для будущего запуска
+из чата или формуляра и в этой задаче не дорабатываются. `request_callback` снят с
+регистрации: его прямой путь и Telegram-интеграция будут реализованы отдельной задачей.
 
 `check_availability` отвечает не слотами, а списком свободных столиков с зоной на
 названное гостем время: агент обязан спросить, где гость хочет сидеть, и забронировать
@@ -673,6 +678,12 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 на нужное число гостей идут первыми, затем более вместительные. Занятость означает
 пересечение запрошенного временного слота с подтверждённой бронью и её буфером, а не
 любую бронь этого столика в тот же календарный день.
+
+`search_menu` не принимает аргументов от LLM: ресторан берётся из валидированного конфига,
+а язык — из текущего состояния разговора. При **каждом** вопросе о меню инструмент читает
+весь доступный каталог, группирует позиции по категориям и передаёт его в контекст модели.
+Агент отвечает о составе, аллергенах, цене, категории, порции, КБЖУ и vegetarian/vegan
+только по этому свежему результату. Недоступные позиции и внутренние алиасы не передаются.
 
 ### 6.1 Особенности `create_pickup_order`
 
@@ -996,8 +1007,10 @@ restaurant-voice-agent/
 │       │   ├── filler.ts       # филлер-фраза перед вызовом RPC
 │       │   ├── reservations-db.ts # прямые вызовы двух RPC бронирования
 │       │   ├── reservations.ts
+│       │   ├── menu-db.ts      # прямой вызов полного актуального меню
 │       │   ├── pickup.ts
 │       │   ├── menu.ts
+│       │   ├── shared.ts       # общие зависимости и результат инструментов
 │       │   └── callback.ts
 │       ├── formatting.ts       # даты, время, цены по языкам
 │       └── telemetry.ts
@@ -1158,9 +1171,9 @@ Function-узлах.
                  OpenAI gpt-transcribe/tts-1 для ручной проверки; PCM-ответ TTS
                  передаётся в LiveKit потоково. НЕ сделаны: TTS-роутер за единым интерфейсом
                  (§2.2) — вторая реализация Piper появляется только в итерации 14;
-                 formatting.ts (§4.2) — вызывать его пока некому, меню-инструмента
-                 нет; чтение default_language и enabled_languages из БД — агент
-                 берёт их из конфига; автотесты — отложены владельцем
+                 чтение default_language и enabled_languages из БД — агент берёт их из
+                 конфига; автотесты LanguageTracker — отложены владельцем. 19.08.2026
+                 добавлен `formatting.ts`: цены меню форматируются до LLM.
 [~] Итерация 5   n8n: развёртывание, HMAC-обвязка, workflows для брони и меню
                  — ЧАСТИЧНО 18.08.2026. Сделаны: self-hosted n8n 2.33.3 в
                  dev/prod Compose, локальные команды запуска, HMAC-обвязка и
@@ -1174,9 +1187,11 @@ Function-узлах.
                  под ролью agent_app, инструменты check_availability и
                  create_reservation поверх RPC, филлер-фразы хуком, правила ресторана
                  в промпте (basilik.*.md), мультиязычные i18n-ресурсы и филлеры на
-                 языке разговора (18.08.2026). НЕ сделаны: инструменты
-                 cancel_reservation и search_menu, автотесты инструментов
-                 (отложены владельцем)
+                 языке разговора (18.08.2026). 19.08.2026 добавлен `search_menu`:
+                 полный доступный каталог с категориями читается прямой RPC, цены
+                 локализуются до LLM. НЕ сделаны: cancel_reservation и автотесты
+                 инструментов — по прямому указанию владельца 19.08.2026 тесты для
+                 `search_menu` не создавались и не запускались
 [ ] Итерация 7   Самовывоз: схема, функции, workflow, инструменты, сборка
                  корзины из речи и подтверждение вслух
 [~] Итерация 8   Обратный звонок: резюме, workflow, Telegram-ссылка, карточки

@@ -87,6 +87,65 @@ export type CreateReservationResponse = z.infer<
   typeof createReservationResponseSchema
 >;
 
+// ── search_menu → get_current_menu ─────────────────────────────────────────
+
+/** У инструмента нет аргументов от LLM: ресторан берётся из конфига агента. */
+export const searchMenuRequestSchema = toolEnvelopeSchema;
+export type SearchMenuRequest = z.infer<typeof searchMenuRequestSchema>;
+
+export const menuItemSchema = z.object({
+  id: idSchema,
+  name: z.string().trim().min(1),
+  description: z.string().nullable(),
+  price_cents: z.int().min(0),
+  /** Готовая локализованная цена: LLM не форматирует деньги самостоятельно. */
+  price: z.string().trim().min(1),
+  allergens: z.array(z.string().trim().min(1)),
+  is_vegetarian: z.boolean(),
+  is_vegan: z.boolean(),
+  weight_g: z.int().positive().nullable(),
+  volume_ml: z.int().positive().nullable(),
+  kcal: z.int().min(0).nullable(),
+  protein_g: z.int().min(0).nullable(),
+  fat_g: z.int().min(0).nullable(),
+  carbs_g: z.int().min(0).nullable(),
+});
+export type MenuItem = z.infer<typeof menuItemSchema>;
+
+export const menuCategorySchema = z.object({
+  id: idSchema,
+  name: z.string().trim().min(1),
+  items: z.array(menuItemSchema).min(1),
+});
+export type MenuCategory = z.infer<typeof menuCategorySchema>;
+
+/** Строка прямой Postgres RPC до группировки категорий в агенте. */
+export const currentMenuRowSchema = z.object({
+  category_id: idSchema,
+  category_name: z.string().trim().min(1),
+  category_sort_order: z.int(),
+  item_id: idSchema,
+  item_name: z.string().trim().min(1),
+  item_description: z.string().nullable(),
+  item_price_cents: z.int().min(0),
+  item_allergens: z.array(z.string().trim().min(1)),
+  item_is_vegetarian: z.boolean(),
+  item_is_vegan: z.boolean(),
+  item_weight_g: z.int().positive().nullable(),
+  item_volume_ml: z.int().positive().nullable(),
+  item_kcal: z.int().min(0).nullable(),
+  item_protein_g: z.int().min(0).nullable(),
+  item_fat_g: z.int().min(0).nullable(),
+  item_carbs_g: z.int().min(0).nullable(),
+});
+export type CurrentMenuRow = z.infer<typeof currentMenuRowSchema>;
+
+export const searchMenuResponseSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), categories: z.array(menuCategorySchema) }),
+  toolFailureSchema,
+]);
+export type SearchMenuResponse = z.infer<typeof searchMenuResponseSchema>;
+
 // ── request_callback → callback.create ───────────────────────────────────────
 
 export const requestCallbackRequestSchema = toolEnvelopeSchema.extend({

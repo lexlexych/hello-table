@@ -26,7 +26,7 @@ leave the developer's working passwords alone.
 
 `roles.sql` is reapplied on every `pnpm db:migrate`, so grant changes need no migration.
 `agent_app` is the voice-agent runtime role: it cannot access tables and can execute only
-`find_available_tables` and `create_reservation_for_table`. `n8n_app` remains separate for
+`find_available_tables`, `create_reservation_for_table`, and `get_current_menu`. `n8n_app` remains separate for
 workflow launched from chats and forms; credentials are never shared between the two.
 `portal_app` holds `SELECT/INSERT/UPDATE` on all tables plus `DELETE` on exactly three
 reference tables — `restaurant_tables`, `menu_categories`, `menu_items` — which the portal

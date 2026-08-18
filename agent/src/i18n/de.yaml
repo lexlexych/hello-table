@@ -15,10 +15,10 @@ filler_sending: "Einen Moment, ich notiere Ihre Nachricht."
 # den Satz wählt der Agent hier, damit die Formulierung vorhersehbar bleibt.
 tool_errors:
   timeout: "Entschuldigung, das dauert gerade zu lange. Bitte wenden Sie sich direkt an das Restaurant."
-  unreachable: "Entschuldigung, das Reservierungssystem ist im Moment nicht erreichbar. Bitte wenden Sie sich direkt an das Restaurant."
+  unreachable: "Entschuldigung, das Restaurantsystem ist im Moment nicht erreichbar. Bitte wenden Sie sich direkt an das Restaurant."
   invalid_response: "Entschuldigung, ich habe darauf gerade keine verlässliche Antwort. Bitte wenden Sie sich direkt an das Restaurant."
   invalid_request: "Entschuldigung, da fehlt mir noch eine Angabe. Nennen Sie mir bitte Tag, Uhrzeit und die Anzahl der Gäste."
-  restaurant_not_found: "Entschuldigung, das Reservierungssystem ist im Moment nicht erreichbar. Bitte wenden Sie sich direkt an das Restaurant."
+  restaurant_not_found: "Entschuldigung, das Restaurantsystem ist im Moment nicht erreichbar. Bitte wenden Sie sich direkt an das Restaurant."
   no_table_available: "Zu dieser Zeit ist leider kein Tisch frei. Möchten Sie eine andere Uhrzeit?"
   table_not_available: "Dieser Tisch lässt sich leider nicht mehr buchen. Ich schaue gern noch einmal nach freien Tischen."
   table_already_booked: "Dieser Tisch wurde gerade vergeben. Ich schaue gern noch einmal nach freien Tischen."

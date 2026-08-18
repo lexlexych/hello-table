@@ -15,10 +15,10 @@ filler_sending: "One moment, I am noting down your message."
 # the sentence is chosen by the agent here so that the wording stays predictable.
 tool_errors:
   timeout: "Sorry, this is taking too long right now. Please contact the restaurant directly."
-  unreachable: "Sorry, the reservation system cannot be reached at the moment. Please contact the restaurant directly."
+  unreachable: "Sorry, the restaurant system cannot be reached at the moment. Please contact the restaurant directly."
   invalid_response: "Sorry, I have no reliable answer to that right now. Please contact the restaurant directly."
   invalid_request: "Sorry, one detail is still missing. Please tell me the day, the time and the number of guests."
-  restaurant_not_found: "Sorry, the reservation system cannot be reached at the moment. Please contact the restaurant directly."
+  restaurant_not_found: "Sorry, the restaurant system cannot be reached at the moment. Please contact the restaurant directly."
   no_table_available: "Unfortunately no table is free at that time. Would you like a different time?"
   table_not_available: "Unfortunately that table can no longer be booked. I am happy to look for free tables again."
   table_already_booked: "That table has just been taken. I am happy to look for free tables again."

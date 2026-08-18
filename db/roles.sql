@@ -17,6 +17,8 @@ GRANT EXECUTE ON FUNCTION find_available_slots(uuid,date,int,time,int),create_re
 -- Голосовой агент вызывает эти две RPC напрямую под отдельной ролью; n8n сохраняет доступ
 -- для тех же операций из будущего чата и формуляра. Обе роли не читают таблицы.
 GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO agent_app,n8n_app;
+-- Актуальное меню голосовой агент читает напрямую; n8n не является частью звонка.
+GRANT EXECUTE ON FUNCTION get_current_menu(uuid,char) TO agent_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;
 -- Дневная бронь столика из портала (PROJECT.md §7.3): право только у portal_app.
 -- n8n_app получит его вместе с workflow бронирования — заглушек не заводим.
