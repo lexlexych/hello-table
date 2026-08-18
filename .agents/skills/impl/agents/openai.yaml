@@ -1,4 +1,0 @@
-interface:
-  display_name: "Implement specification"
-  short_description: "Implement a spec with review and tests"
-  default_prompt: "Use $impl to implement the latest ready-for-impl specification."
