@@ -20,11 +20,13 @@ describe("loadConfig", () => {
   it("parses a valid configuration and applies defaults", () => {
     const config = loadConfig(validEnv());
 
-    expect(config.AGENT_LANGUAGE).toBe("de");
+    expect(config.AGENT_DEFAULT_LANGUAGE).toBe("de");
+    expect(config.AGENT_ENABLED_LANGUAGES).toEqual(["de", "ru", "en"]);
+    expect(config.AGENT_LANGUAGE_SWITCH_AFTER).toBe(2);
     expect(config.AGENT_TURN_DETECTOR).toBe("multilingual");
     expect(config.AGENT_MIN_ENDPOINTING_DELAY_MS).toBe(500);
     expect(config.AGENT_MAX_ENDPOINTING_DELAY_MS).toBe(3_000);
-    expect(config.STT_MODEL).toBe("voxtral-mini-transcribe-realtime-2602");
+    expect(config.STT_MODEL).toBe("scribe_v2_realtime");
     expect(config.LLM_MODEL).toBe("mistral-large-latest");
     expect(config.LOG_LEVEL).toBe("info");
     expect(config.AGENT_DATABASE_TIMEOUT_MS).toBe(8_000);
@@ -50,8 +52,8 @@ describe("loadConfig", () => {
   });
 
   it("rejects unsupported languages", () => {
-    expect(() => loadConfig({ ...validEnv(), AGENT_LANGUAGE: "en" })).toThrow(
-      /AGENT_LANGUAGE/,
-    );
+    expect(() =>
+      loadConfig({ ...validEnv(), AGENT_DEFAULT_LANGUAGE: "fr" }),
+    ).toThrow(/AGENT_DEFAULT_LANGUAGE/);
   });
 });

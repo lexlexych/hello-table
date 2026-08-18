@@ -5,7 +5,9 @@ import { loadConfig } from "../src/config.ts";
 import {
   buildSessionOptions,
   buildStartOptions,
-  createGermanAgent,
+  buildStt,
+  buildTts,
+  createRestaurantAgent,
 } from "../src/session.ts";
 
 vi.mock("@livekit/agents-plugin-livekit", () => ({
@@ -34,7 +36,7 @@ function config(turnDetector: "multilingual" | "off" = "multilingual") {
 
 describe("session options", () => {
   it("always disables recording in start options", () => {
-    const agent = createGermanAgent("Testanweisung", []);
+    const agent = createRestaurantAgent("Testanweisung", []);
     const room = {} as Room;
 
     expect(buildStartOptions(agent, room)).toEqual({
@@ -45,7 +47,12 @@ describe("session options", () => {
   });
 
   it("copies endpointing delays and enables the multilingual detector", () => {
-    const options = buildSessionOptions(config(), {} as VAD);
+    const options = buildSessionOptions(
+      config(),
+      {} as VAD,
+      buildStt(config()),
+      buildTts(config(), "de"),
+    );
 
     expect(options.turnHandling?.endpointing).toMatchObject({
       mode: "fixed",
@@ -56,7 +63,12 @@ describe("session options", () => {
   });
 
   it("uses VAD endpointing without constructing a multilingual detector when disabled", () => {
-    const options = buildSessionOptions(config("off"), {} as VAD);
+    const options = buildSessionOptions(
+      config("off"),
+      {} as VAD,
+      buildStt(config("off")),
+      buildTts(config("off"), "de"),
+    );
 
     expect(options.turnHandling?.turnDetection).toBe("vad");
   });

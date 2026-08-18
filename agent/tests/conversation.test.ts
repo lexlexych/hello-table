@@ -1,6 +1,6 @@
 import { voice } from "@livekit/agents";
 import { afterEach, describe, expect, it } from "vitest";
-import { createGermanAgent } from "../src/session.ts";
+import { createRestaurantAgent } from "../src/session.ts";
 
 let session: voice.AgentSession | undefined;
 
@@ -23,7 +23,7 @@ describe("German prototype conversation", () => {
       vad: null,
       turnHandling: { turnDetection: null },
     });
-    const agent = createGermanAgent(systemPrompt, []);
+    const agent = createRestaurantAgent(systemPrompt, []);
     await session.start({ agent, record: false });
 
     const result = await session.run({ userInput: "Guten Tag" }).wait();

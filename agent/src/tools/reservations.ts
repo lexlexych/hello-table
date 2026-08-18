@@ -1,7 +1,7 @@
-import { type AvailableTable, languageSchema } from "@hello-table/contracts";
+import type { AvailableTable } from "@hello-table/contracts";
 import { llm } from "@livekit/agents";
 import { z } from "zod";
-import type { GermanPhrases } from "../session.ts";
+import type { Phrases, SessionLanguageState } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
 import { withFiller } from "./filler.ts";
 import { createReservation, findAvailableTables } from "./reservations-db.ts";
@@ -14,7 +14,11 @@ import { createReservation, findAvailableTables } from "./reservations-db.ts";
 
 export interface ToolDeps {
   database: AgentDatabase;
-  phrases: GermanPhrases;
+  /**
+   * Язык разговора и его фразы. Ссылка, а не снимок: после переключения языка филлеры и
+   * тексты ошибок обязаны звучать уже на новом языке (skills/agent-tools).
+   */
+  session: SessionLanguageState;
   restaurantId: string;
 }
 
@@ -24,8 +28,8 @@ export type ToolReply<T> =
   | { ok: false; error: string; message: string };
 
 export function failure(
-  phrases: GermanPhrases,
-  error: keyof GermanPhrases["tool_errors"],
+  phrases: Phrases,
+  error: keyof Phrases["tool_errors"],
 ): ToolReply<never> {
   return { ok: false, error, message: phrases.tool_errors[error] };
 }
@@ -58,7 +62,7 @@ export function checkAvailabilityTool(deps: ToolDeps) {
     ): Promise<ToolReply<{ tables: AvailableTable[] }>> => {
       const outcome = await withFiller(
         opts.ctx.session,
-        deps.phrases.filler_checking,
+        deps.session.phrases.filler_checking,
         () =>
           findAvailableTables(deps.database, {
             restaurant_id: deps.restaurantId,
@@ -68,7 +72,7 @@ export function checkAvailabilityTool(deps: ToolDeps) {
           }),
       );
 
-      if (!outcome.ok) return failure(deps.phrases, outcome.error);
+      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
       return { ok: true, tables: outcome.value.tables };
     },
   });
@@ -108,7 +112,7 @@ export function createReservationTool(deps: ToolDeps) {
     > => {
       const outcome = await withFiller(
         opts.ctx.session,
-        deps.phrases.filler_booking,
+        deps.session.phrases.filler_booking,
         () =>
           createReservation(deps.database, {
             restaurant_id: deps.restaurantId,
@@ -118,13 +122,13 @@ export function createReservationTool(deps: ToolDeps) {
             party_size: args.party_size,
             guest_name: args.guest_name,
             guest_phone: args.guest_phone,
-            // Прототип ведёт разговор только по-немецки; язык берётся из схемы
-            // контрактов, а не пишется строкой в двух местах.
-            language: languageSchema.enum.de,
+            // Язык разговора на момент брони: он попадает в reservations.language и
+            // определяет язык подтверждений и уведомлений (PROJECT.md §4.1 п.5).
+            language: deps.session.language,
           }),
       );
 
-      if (!outcome.ok) return failure(deps.phrases, outcome.error);
+      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
       return {
         ok: true,
         reservation_id: outcome.value.reservation_id,

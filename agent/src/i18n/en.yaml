@@ -1,0 +1,29 @@
+# Before any real customer call the operator must review and adjust this text legally.
+# It must never be removed or moved after the greeting.
+ai_disclosure: "Please note: you are speaking with an AI-powered voice assistant."
+greeting: "Hello, how can I help you?"
+goodbye: "Thank you for calling. Goodbye."
+error_unavailable: "Sorry, the voice service is currently unavailable. Please try again later."
+
+# Filler sentences spoken before a tool call. They are spoken by a hook, not decided by the
+# model (PROJECT.md §3.3): otherwise the guest hears only silence during the RPC call.
+filler_checking: "One moment, let me check."
+filler_booking: "One moment, I am reserving the table for you."
+filler_sending: "One moment, I am noting down your message."
+
+# Replies for the tools' error codes. The database client returns only the code —
+# the sentence is chosen by the agent here so that the wording stays predictable.
+tool_errors:
+  timeout: "Sorry, this is taking too long right now. Please contact the restaurant directly."
+  unreachable: "Sorry, the reservation system cannot be reached at the moment. Please contact the restaurant directly."
+  invalid_response: "Sorry, I have no reliable answer to that right now. Please contact the restaurant directly."
+  invalid_request: "Sorry, one detail is still missing. Please tell me the day, the time and the number of guests."
+  restaurant_not_found: "Sorry, the reservation system cannot be reached at the moment. Please contact the restaurant directly."
+  no_table_available: "Unfortunately no table is free at that time. Would you like a different time?"
+  table_not_available: "Unfortunately that table can no longer be booked. I am happy to look for free tables again."
+  table_already_booked: "That table has just been taken. I am happy to look for free tables again."
+  closed_at_requested_time: "Unfortunately we are closed at that time. We are open for you daily from 12 to 23 o'clock."
+  party_too_large: "For that many guests I do not book over the phone. Please discuss the details with the restaurant directly."
+  slot_in_past: "That time is already in the past. When would you like me to book?"
+  invalid_category: "Sorry, I could not categorise your request. What is it about, in short?"
+  summary_too_long: "Sorry, let me summarise your request more briefly."

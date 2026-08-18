@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@livekit/agents-plugin-elevenlabs@1.6.4': eacd86bc29e387c2eca8ed2daba7ae86de7992c7a797e0b64fa78ba6212f37c8
+
 importers:
 
   .:
@@ -37,7 +40,7 @@ importers:
         version: 1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3)
       '@livekit/agents-plugin-elevenlabs':
         specifier: 1.6.4
-        version: 1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
+        version: 1.6.4(patch_hash=eacd86bc29e387c2eca8ed2daba7ae86de7992c7a797e0b64fa78ba6212f37c8)(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)
       '@livekit/agents-plugin-livekit':
         specifier: 1.6.4
         version: 1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))
@@ -2540,7 +2543,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@livekit/agents-plugin-elevenlabs@1.6.4(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)':
+  '@livekit/agents-plugin-elevenlabs@1.6.4(patch_hash=eacd86bc29e387c2eca8ed2daba7ae86de7992c7a797e0b64fa78ba6212f37c8)(@livekit/agents@1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3))(@livekit/rtc-node@0.13.33)':
     dependencies:
       '@livekit/agents': 1.6.4(@livekit/rtc-node@0.13.33)(@types/node@24.13.3)(typescript@7.0.2)(zod@4.4.3)
       '@livekit/mutex': 1.1.1

@@ -1,5 +1,5 @@
 import type { Config } from "../config.ts";
-import type { GermanPhrases } from "../session.ts";
+import type { SessionLanguageState } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
 import {
   checkAvailabilityTool,
@@ -13,12 +13,12 @@ import {
  */
 export function buildTools(
   config: Config,
-  phrases: GermanPhrases,
+  session: SessionLanguageState,
   database: AgentDatabase,
 ) {
   const deps: ToolDeps = {
     database,
-    phrases,
+    session,
     restaurantId: config.RESTAURANT_ID,
   };
 

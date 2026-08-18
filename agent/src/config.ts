@@ -1,4 +1,18 @@
+import { languageSchema } from "@hello-table/contracts";
 import { z } from "zod";
+
+/**
+ * Голоса ElevenLabs на язык. Пустое значение означает «взять общий ELEVENLABS_VOICE_ID»:
+ * на одном мультиязычном голосе система работает целиком, а разные голоса на языки —
+ * вопрос бренда, а не техники.
+ */
+const optionalVoiceId = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) =>
+    value === undefined || value === "" ? undefined : value,
+  );
 
 export const configSchema = z
   .object({
@@ -7,18 +21,77 @@ export const configSchema = z
     LIVEKIT_API_SECRET: z.string().min(1),
 
     MISTRAL_API_KEY: z.string().min(1),
-    STT_MODEL: z
-      .string()
-      .min(1)
-      .default("voxtral-mini-transcribe-realtime-2602"),
     LLM_MODEL: z.string().min(1).default("mistral-large-latest"),
 
     ELEVENLABS_API_KEY: z.string().min(1),
     ELEVENLABS_VOICE_ID: z.string().min(1),
+    ELEVENLABS_VOICE_ID_DE: optionalVoiceId,
+    ELEVENLABS_VOICE_ID_RU: optionalVoiceId,
+    ELEVENLABS_VOICE_ID_EN: optionalVoiceId,
     ELEVENLABS_MODEL: z.string().min(1),
     ELEVENLABS_BASE_URL: z.url().optional(),
 
-    AGENT_LANGUAGE: z.literal("de").default("de"),
+    /**
+     * Распознавание речи тоже идёт через ElevenLabs. Пакетные модели Scribe объявляют
+     * `streaming: false`, и разговор с ними развалится в рантайме, поэтому они
+     * отвергаются здесь, а не выясняются на звонке.
+     */
+    STT_MODEL: z
+      .string()
+      .min(1)
+      .default("scribe_v2_realtime")
+      .refine((value) => value !== "scribe_v1" && value !== "scribe_v2", {
+        message:
+          "must be a realtime model such as scribe_v2_realtime: batch Scribe models do not stream",
+      }),
+
+    /**
+     * Сколько миллисекунд тишины считается концом реплики гостя.
+     *
+     * Это порог **серверного VAD ElevenLabs**, а не эндпоинтинга фреймворка. Именно он
+     * заставляет Scribe закоммитить сегмент и отдать финальную расшифровку: без
+     * серверного VAD плагин работает в режиме `commit_strategy=manual` и не коммитит
+     * никогда, потому что фреймворк не шлёт ему FLUSH_SENTINEL. Разбор —
+     * docs/architecture.md.
+     */
+    STT_VAD_SILENCE_THRESHOLD_MS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(5_000)
+      .default(500),
+
+    /** Язык приветствия и объявления об ИИ (PROJECT.md §4.1 п.1–2). */
+    AGENT_DEFAULT_LANGUAGE: languageSchema.default("ru"),
+    /** Языки, на которые агенту разрешено переключаться (§5.1 enabled_languages). */
+    AGENT_ENABLED_LANGUAGES: z
+      .string()
+      .default("de,ru,en")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0),
+      )
+      .pipe(
+        z
+          .array(languageSchema)
+          .min(1)
+          .refine((list) => new Set(list).size === list.length, {
+            message: "must not repeat a language",
+          }),
+      ),
+    /**
+     * Сколько подряд идущих реплик на другом языке нужно, чтобы переключиться.
+     * Порог, а не жёсткая единица: §4.1 требует не переключаться от одного слова.
+     */
+    AGENT_LANGUAGE_SWITCH_AFTER: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(5)
+      .default(2),
+
     AGENT_TURN_DETECTOR: z
       .enum(["multilingual", "off"])
       .default("multilingual"),
@@ -94,6 +167,16 @@ export const configSchema = z
         code: "custom",
         path: ["AGENT_MIN_ENDPOINTING_DELAY_MS"],
         message: "must not exceed AGENT_MAX_ENDPOINTING_DELAY_MS",
+      });
+    }
+
+    if (
+      !config.AGENT_ENABLED_LANGUAGES.includes(config.AGENT_DEFAULT_LANGUAGE)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["AGENT_DEFAULT_LANGUAGE"],
+        message: "must be listed in AGENT_ENABLED_LANGUAGES",
       });
     }
   });
