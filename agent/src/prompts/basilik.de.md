@@ -45,9 +45,7 @@ anbieten.
 ## Kindermenü
 
 - Zu allen Öffnungszeiten verfügbar, eine eigene Reservierung ist nicht nötig.
-- Es genügt, die Anzahl der Kinder bei der Tischreservierung anzugeben.
-- Ein Hochstuhl wird bei Bedarf gestellt; besser vorab bei der Reservierung erwähnen,
-  zwingend ist es nicht.
+- Ein Hochstuhl wird auf Wunsch des Gastes gestellt; frage nicht von dir aus danach.
 
 ## Business-Lunch
 

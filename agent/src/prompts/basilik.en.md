@@ -43,9 +43,7 @@ Anything not covered here is never invented — offer a call back from the manag
 ## Kids menu
 
 - Available during all opening hours, no separate booking required.
-- It is enough to state the number of children when booking a table.
-- A high chair is provided on request; mentioning it when booking helps, but it is not
-  mandatory.
+- A high chair is provided if the guest requests one; do not ask about it proactively.
 
 ## Business lunch
 

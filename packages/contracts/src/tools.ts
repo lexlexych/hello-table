@@ -44,7 +44,7 @@ export const availableTableSchema = z.object({
   table_id: idSchema,
   label: z.string().min(1),
   seats: z.int().min(1),
-  /** Зона зала: по ней агент спрашивает «в зале или на террасе». */
+  /** Зона зала: агент предлагает зоны, но сам выбирает первый столик нужной зоны. */
   zone: z.string().min(1).nullable(),
 });
 export type AvailableTable = z.infer<typeof availableTableSchema>;
@@ -60,12 +60,13 @@ export type CheckAvailabilityResponse = z.infer<
 // ── create_reservation → reservation.create ──────────────────────────────────
 
 export const createReservationRequestSchema = toolEnvelopeSchema.extend({
-  /** Столик из ответа check_availability. Агент не подбирает его сам. */
+  /** Первый подходящий столик нужной зоны из ответа check_availability. */
   table_id: idSchema,
   date: dateStringSchema,
   time: timeStringSchema,
   party_size: z.int().min(1).max(100),
   guest_name: z.string().trim().min(1),
+  /** Голосовой агент всегда передаёт null; поле остаётся общим для других каналов. */
   guest_phone: z.string().trim().min(1).nullable(),
   language: languageSchema,
 });

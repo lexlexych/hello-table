@@ -1,6 +1,4 @@
-import {
-  type AvailableTable,
-} from "@hello-table/contracts";
+import type { AvailableTable } from "@hello-table/contracts";
 import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { createReservation, findAvailableTables } from "./reservations-db.ts";
@@ -8,9 +6,9 @@ import {
   callWithVoiceMode,
   failure,
   resolveToolLanguage,
-  toolLanguageParameter,
   type ToolDeps,
   type ToolReply,
+  toolLanguageParameter,
 } from "./shared.ts";
 
 /**
@@ -24,9 +22,11 @@ export function checkAvailabilityTool(deps: ToolDeps) {
     name: "check_availability",
     description:
       "Sucht freie Tische im Restaurant für einen konkreten Tag, eine konkrete Uhrzeit " +
-      "und eine Anzahl Gäste. Vorher Tag, Uhrzeit und Gästezahl beim Gast erfragen. " +
-      "Liefert die freien Tische mit Bereich (z. B. Hauptraum oder Terrasse); bei mehreren " +
-      "Bereichen den Gast nach seinem Wunsch fragen und nicht selbst wählen.",
+      "und eine Anzahl Gäste. Nach der Gästezahl nur kurz und ohne Ergänzungen, Kategorien " +
+      "oder Erklärungen fragen. Liefert freie Tische in einer bevorzugten Reihenfolge mit " +
+      "Bereich (z. B. Hauptraum oder Terrasse). Nur bei mehreren verfügbaren Bereichen " +
+      "nach dem gewünschten Bereich fragen; niemals einen konkreten Tisch, eine Nummer " +
+      "oder eine Bezeichnung vom Gast wählen lassen.",
     parameters: z.object({
       date: z
         .string()
@@ -39,7 +39,7 @@ export function checkAvailabilityTool(deps: ToolDeps) {
       party_size: z
         .number()
         .int()
-        .describe("Anzahl der Gäste, inklusive Kinder"),
+        .describe("Anzahl der Gäste; ohne Zusätze oder Erklärungen erfragen"),
       language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (
@@ -70,10 +70,13 @@ export function createReservationTool(deps: ToolDeps) {
   return llm.tool({
     name: "create_reservation",
     description:
-      "Reserviert genau den Tisch, den der Gast gewählt hat. Nur mit einer table_id aus " +
-      "einem vorherigen check_availability aufrufen — niemals eine ID erfinden. Vorher " +
-      "Namen und Telefonnummer erfragen. Die Reservierung erst bestätigen, wenn dieses " +
-      "Werkzeug erfolgreich war.",
+      "Reserviert einen Tisch aus einem vorherigen check_availability — niemals eine ID " +
+      "erfinden. Nach der Bereichswahl den ersten Tisch dieses Bereichs in der gelieferten " +
+      "Reihenfolge verwenden; ist nur ein Bereich verfügbar oder hat der Gast keine " +
+      "Präferenz, den ersten Tisch der Antwort verwenden. Niemals den Gast einen konkreten " +
+      "Tisch wählen lassen. Vorher nur den Namen erfragen. Niemals nach der Telefonnummer " +
+      "fragen und guest_phone immer null setzen. Die Reservierung erst bestätigen, wenn " +
+      "dieses Werkzeug erfolgreich war.",
     parameters: z.object({
       table_id: z
         .string()
@@ -82,10 +85,6 @@ export function createReservationTool(deps: ToolDeps) {
       time: z.string().describe("Uhrzeit im 24-Stunden-Format HH:MM"),
       party_size: z.number().int().describe("Anzahl der Gäste"),
       guest_name: z.string().describe("Name, unter dem reserviert wird"),
-      guest_phone: z
-        .string()
-        .nullable()
-        .describe("Telefonnummer des Gastes oder null, wenn nicht genannt"),
       language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (
@@ -112,7 +111,9 @@ export function createReservationTool(deps: ToolDeps) {
             time: args.time,
             party_size: args.party_size,
             guest_name: args.guest_name,
-            guest_phone: args.guest_phone,
+            // Телефон намеренно не входит в tool-схему LLM: голосовой агент не должен
+            // ни запрашивать его, ни передавать придуманное значение.
+            guest_phone: null,
             // Язык разговора на момент брони: он попадает в reservations.language и
             // определяет язык подтверждений и уведомлений (PROJECT.md §4.1 п.5).
             language,
