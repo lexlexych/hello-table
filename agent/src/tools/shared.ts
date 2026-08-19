@@ -1,6 +1,6 @@
 import {
-  languageSchema,
   type Language,
+  languageSchema,
   type VoiceMode,
 } from "@hello-table/contracts";
 import {
@@ -9,14 +9,12 @@ import {
   type SessionLanguageState,
 } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
-import type { FillerSpeaker } from "./filler.ts";
-import { withFiller } from "./filler.ts";
 
 export interface ToolDeps {
   database: AgentDatabase;
   /**
-   * Язык разговора и его фразы. Ссылка, а не снимок: после переключения языка филлеры и
-   * тексты ошибок обязаны звучать уже на новом языке (skills/agent-tools).
+   * Язык разговора и его фразы. Ссылка, а не снимок: после переключения языка тексты
+   * ошибок обязаны звучать уже на новом языке.
    */
   session: SessionLanguageState;
   phrasesByLanguage: Partial<Record<Language, Phrases>>;
@@ -49,16 +47,6 @@ export function resolveToolLanguage(
   deps.session.language = language;
   deps.session.phrases = resourceFor(deps.phrasesByLanguage, language);
   return language;
-}
-
-/** Pipeline announces deterministic fillers; Realtime owns its conversational timing. */
-export function callWithVoiceMode<T>(
-  deps: ToolDeps,
-  speaker: FillerSpeaker | undefined,
-  phrase: string,
-  call: () => Promise<T>,
-): Promise<T> {
-  return deps.voiceMode === "pipeline" ? withFiller(speaker, phrase, call) : call();
 }
 
 /** Результат инструмента для модели: либо данные, либо код отказа с готовой фразой. */

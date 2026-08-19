@@ -3,7 +3,6 @@ import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { createReservation, findAvailableTables } from "./reservations-db.ts";
 import {
-  callWithVoiceMode,
   failure,
   resolveToolLanguage,
   type ToolDeps,
@@ -42,23 +41,14 @@ export function checkAvailabilityTool(deps: ToolDeps) {
         .describe("Anzahl der Gäste; ohne Zusätze oder Erklärungen erfragen"),
       language: toolLanguageParameter(deps.voiceMode),
     }),
-    execute: async (
-      args,
-      opts,
-    ): Promise<ToolReply<{ tables: AvailableTable[] }>> => {
+    execute: async (args): Promise<ToolReply<{ tables: AvailableTable[] }>> => {
       resolveToolLanguage(deps, args.language);
-      const outcome = await callWithVoiceMode(
-        deps,
-        opts.ctx.session,
-        deps.session.phrases.filler_checking,
-        () =>
-          findAvailableTables(deps.database, {
-            restaurant_id: deps.restaurantId,
-            date: args.date,
-            time: args.time,
-            party_size: args.party_size,
-          }),
-      );
+      const outcome = await findAvailableTables(deps.database, {
+        restaurant_id: deps.restaurantId,
+        date: args.date,
+        time: args.time,
+        party_size: args.party_size,
+      });
 
       if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
       return { ok: true, tables: outcome.value.tables };
@@ -89,7 +79,6 @@ export function createReservationTool(deps: ToolDeps) {
     }),
     execute: async (
       args,
-      opts,
     ): Promise<
       ToolReply<{
         reservation_id: string;
@@ -99,26 +88,20 @@ export function createReservationTool(deps: ToolDeps) {
       }>
     > => {
       const language = resolveToolLanguage(deps, args.language);
-      const outcome = await callWithVoiceMode(
-        deps,
-        opts.ctx.session,
-        deps.session.phrases.filler_booking,
-        () =>
-          createReservation(deps.database, {
-            restaurant_id: deps.restaurantId,
-            table_id: args.table_id,
-            date: args.date,
-            time: args.time,
-            party_size: args.party_size,
-            guest_name: args.guest_name,
-            // Телефон намеренно не входит в tool-схему LLM: голосовой агент не должен
-            // ни запрашивать его, ни передавать придуманное значение.
-            guest_phone: null,
-            // Язык разговора на момент брони: он попадает в reservations.language и
-            // определяет язык подтверждений и уведомлений (PROJECT.md §4.1 п.5).
-            language,
-          }),
-      );
+      const outcome = await createReservation(deps.database, {
+        restaurant_id: deps.restaurantId,
+        table_id: args.table_id,
+        date: args.date,
+        time: args.time,
+        party_size: args.party_size,
+        guest_name: args.guest_name,
+        // Телефон намеренно не входит в tool-схему LLM: голосовой агент не должен
+        // ни запрашивать его, ни передавать придуманное значение.
+        guest_phone: null,
+        // Язык разговора на момент брони: он попадает в reservations.language и
+        // определяет язык подтверждений и уведомлений (PROJECT.md §4.1 п.5).
+        language,
+      });
 
       if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
       return {

@@ -270,36 +270,6 @@ export function TablesManager({
 
   return (
     <>
-      <div className="day-bar">
-        <span className="day-bar-label">День</span>
-        <div className="day-chips">
-          {quickDays.map((day) => (
-            <button
-              key={day}
-              type="button"
-              className={day === date ? "day-chip is-current" : "day-chip"}
-              aria-current={day === date ? "date" : undefined}
-              onClick={() => goToDay(day)}
-            >
-              {formatDayLabel(day, today)}
-            </button>
-          ))}
-        </div>
-        <label className="day-pick">
-          <span>Другой день</span>
-          <input
-            type="date"
-            value={date}
-            onChange={(event) => {
-              const value = event.currentTarget.value;
-              if (value) {
-                goToDay(value);
-              }
-            }}
-          />
-        </label>
-      </div>
-
       <div className="page-head">
         <div>
           <h1>Столики</h1>
@@ -377,6 +347,36 @@ export function TablesManager({
         <span className="toolbar-count">
           показано: {visible.length} из {tables.length}
         </span>
+      </div>
+
+      <div className="day-bar">
+        <span className="day-bar-label">День</span>
+        <div className="day-chips">
+          {quickDays.map((day) => (
+            <button
+              key={day}
+              type="button"
+              className={day === date ? "day-chip is-current" : "day-chip"}
+              aria-current={day === date ? "date" : undefined}
+              onClick={() => goToDay(day)}
+            >
+              {formatDayLabel(day, today)}
+            </button>
+          ))}
+        </div>
+        <label className="day-pick">
+          <span>Другой день</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              if (value) {
+                goToDay(value);
+              }
+            }}
+          />
+        </label>
       </div>
 
       {visible.length === 0 ? (

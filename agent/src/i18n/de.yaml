@@ -5,12 +5,6 @@ greeting: "Guten Tag, wie kann ich Ihnen helfen?"
 goodbye: "Vielen Dank für Ihren Anruf. Auf Wiederhören."
 error_unavailable: "Entschuldigung, der Sprachdienst ist gerade nicht verfügbar. Bitte versuchen Sie es später erneut."
 
-# Füllsätze vor einem Werkzeugaufruf. Sie werden per Hook gesprochen, nicht vom Modell
-# entschieden (PROJECT.md §3.3): sonst hört der Gast während des RPC-Aufrufs nur Stille.
-filler_checking: "Einen Moment, ich schaue nach."
-filler_booking: "Einen Moment, ich reserviere den Tisch für Sie."
-filler_sending: "Einen Moment, ich notiere Ihre Nachricht."
-
 # Antworttexte zu den Fehlercodes der Werkzeuge. Der Datenbank-Client liefert nur den Code —
 # den Satz wählt der Agent hier, damit die Formulierung vorhersehbar bleibt.
 tool_errors:

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import type { ReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import {
   DOMAIN_TOOL_ERRORS,
@@ -7,7 +8,7 @@ import {
 } from "@hello-table/contracts";
 import { inference, type llm, type VAD, voice } from "@livekit/agents";
 import * as openai from "@livekit/agents-plugin-openai";
-import type { Room } from "@livekit/rtc-node";
+import type { AudioFrame, Room } from "@livekit/rtc-node";
 import { parse } from "yaml";
 import { z } from "zod";
 import type { Config } from "./config.ts";
@@ -21,9 +22,6 @@ const phrasesSchema = z.object({
   ai_disclosure: z.string().trim().min(1),
   goodbye: z.string().trim().min(1),
   error_unavailable: z.string().trim().min(1),
-  filler_checking: z.string().trim().min(1),
-  filler_booking: z.string().trim().min(1),
-  filler_sending: z.string().trim().min(1),
   /**
    * Фраза на каждый код ошибки инструмента. Ключи проверяются схемой контрактов, а не
    * перечисляются здесь второй раз: пропущенный код иначе всплыл бы только в разговоре.
@@ -40,11 +38,27 @@ export type Phrases = z.infer<typeof phrasesSchema>;
  * Язык разговора и его ресурсы — одна изменяемая ссылка на всю сессию.
  *
  * Инструменты и обработчики читают её в момент вызова, а не получают снимок при сборке:
- * иначе после переключения языка филлер-фраза и текст ошибки остались бы на старом языке.
+ * иначе после переключения языка текст ошибки остался бы на старом языке.
  */
 export interface SessionLanguageState {
   language: Language;
   phrases: Phrases;
+}
+
+export type TurnFillerProvider = () => ReadableStream<AudioFrame> | undefined;
+
+const spokenWordSegmenter = new Intl.Segmenter(["ru", "de", "en"], {
+  granularity: "word",
+});
+
+function countSpokenWords(text: string): number {
+  let count = 0;
+  for (const segment of spokenWordSegmenter.segment(text)) {
+    if (segment.isWordLike) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 /** Голос OpenAI TTS для языка; при незаполненном языковом голосе — общий. */
@@ -200,12 +214,47 @@ export function buildStartOptions(
   return { agent, room, record: false };
 }
 
-/** Creates the restaurant agent together with its registered tools. */
+class RestaurantAgent extends voice.Agent {
+  #nextTurnFiller: TurnFillerProvider | undefined;
+
+  constructor(
+    systemPrompt: string,
+    tools: llm.ToolContextLike,
+    nextTurnFiller?: TurnFillerProvider,
+  ) {
+    super({ instructions: systemPrompt, tools });
+    this.#nextTurnFiller = nextTurnFiller;
+  }
+
+  /** Queues local acknowledgement audio before LiveKit starts the generated reply. */
+  override onUserTurnCompleted(
+    _chatCtx: llm.ChatContext,
+    newMessage: llm.ChatMessage,
+  ): Promise<void> {
+    if (countSpokenWords(newMessage.rawTextContent ?? "") <= 3) {
+      return Promise.resolve();
+    }
+    const audio = this.#nextTurnFiller?.();
+    if (audio !== undefined) {
+      this.session.say("", {
+        audio,
+        addToChatCtx: false,
+        allowInterruptions: true,
+      });
+    }
+    // LiveKit starts LLM generation as soon as this callback resolves. The queued WAV remains
+    // first in the speech queue, so generation and later TTS proceed during its playout.
+    return Promise.resolve();
+  }
+}
+
+/** Creates the restaurant agent together with its registered tools and optional turn filler. */
 export function createRestaurantAgent(
   systemPrompt: string,
   tools: llm.ToolContextLike,
+  nextTurnFiller?: TurnFillerProvider,
 ): voice.Agent {
-  return new voice.Agent({ instructions: systemPrompt, tools });
+  return new RestaurantAgent(systemPrompt, tools, nextTurnFiller);
 }
 
 async function readPromptFile(name: string): Promise<string> {

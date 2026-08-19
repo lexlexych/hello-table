@@ -3,12 +3,11 @@ import { llm } from "@livekit/agents";
 import { z } from "zod";
 import { getCurrentMenu } from "./menu-db.ts";
 import {
-  callWithVoiceMode,
   failure,
   resolveToolLanguage,
-  toolLanguageParameter,
   type ToolDeps,
   type ToolReply,
+  toolLanguageParameter,
 } from "./shared.ts";
 
 /** Загружает полный доступный каталог при каждом вопросе гостя о меню. */
@@ -24,19 +23,12 @@ export function searchMenuTool(deps: ToolDeps) {
     }),
     execute: async (
       args,
-      opts,
     ): Promise<ToolReply<{ categories: MenuCategory[] }>> => {
       const language = resolveToolLanguage(deps, args.language);
-      const outcome = await callWithVoiceMode(
-        deps,
-        opts.ctx.session,
-        deps.session.phrases.filler_checking,
-        () =>
-          getCurrentMenu(deps.database, {
-            restaurant_id: deps.restaurantId,
-            language,
-          }),
-      );
+      const outcome = await getCurrentMenu(deps.database, {
+        restaurant_id: deps.restaurantId,
+        language,
+      });
 
       if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
       return { ok: true, categories: outcome.value.categories };

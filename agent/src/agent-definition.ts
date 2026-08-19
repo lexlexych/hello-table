@@ -26,7 +26,11 @@ import {
   startRealtimeSessionWithDisclosure,
   startSessionWithDisclosure,
 } from "./startup.ts";
-import { loadRussianStartupAudio, streamAudioFrames } from "./startup-audio.ts";
+import {
+  loadRussianStartupAudio,
+  loadRussianTurnFillers,
+  streamAudioFrames,
+} from "./startup-audio.ts";
 import { attachTelemetry } from "./telemetry.ts";
 import { createAgentDatabase } from "./tools/database.ts";
 import { buildTools } from "./tools/index.ts";
@@ -64,6 +68,28 @@ export function createAgent(config: Config) {
       const startupText = `${state.phrases.ai_disclosure} ${state.phrases.greeting}`;
       const russianStartupAudio =
         state.language === "ru" ? await loadRussianStartupAudio() : undefined;
+      const russianTurnFillers =
+        voiceMode === "pipeline" &&
+        config.AGENT_ENABLED_LANGUAGES.includes("ru")
+          ? await loadRussianTurnFillers()
+          : undefined;
+      let nextRussianTurnFiller = 0;
+
+      const nextTurnFiller =
+        russianTurnFillers === undefined
+          ? undefined
+          : () => {
+              if (state.language !== "ru") {
+                return undefined;
+              }
+              const frames = russianTurnFillers[nextRussianTurnFiller];
+              if (frames === undefined) {
+                return undefined;
+              }
+              nextRussianTurnFiller =
+                (nextRussianTurnFiller + 1) % russianTurnFillers.length;
+              return streamAudioFrames(frames);
+            };
 
       const tools = buildTools(
         config,
@@ -72,7 +98,11 @@ export function createAgent(config: Config) {
         database,
         voiceMode,
       );
-      const agent = createRestaurantAgent(multilingualPrompt, tools);
+      const agent = createRestaurantAgent(
+        multilingualPrompt,
+        tools,
+        nextTurnFiller,
+      );
       log().info({ voiceMode }, "agent_voice_mode_selected");
 
       if (voiceMode === "realtime") {

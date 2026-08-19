@@ -5,12 +5,6 @@ greeting: "Hello, how can I help you?"
 goodbye: "Thank you for calling. Goodbye."
 error_unavailable: "Sorry, the voice service is currently unavailable. Please try again later."
 
-# Filler sentences spoken before a tool call. They are spoken by a hook, not decided by the
-# model (PROJECT.md §3.3): otherwise the guest hears only silence during the RPC call.
-filler_checking: "One moment, let me check."
-filler_booking: "One moment, I am reserving the table for you."
-filler_sending: "One moment, I am noting down your message."
-
 # Replies for the tools' error codes. The database client returns only the code —
 # the sentence is chosen by the agent here so that the wording stays predictable.
 tool_errors:

@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import { AudioFrame } from "@livekit/rtc-node";
@@ -10,7 +11,7 @@ const SAMPLES_PER_FRAME = SAMPLE_RATE / 100;
 const UNKNOWN_CHUNK_SIZE = 0xffff_ffff;
 
 function invalidWav(path: string, reason: string): Error {
-  return new Error(`Invalid startup WAV ${path}: ${reason}`);
+  return new Error(`Invalid prerecorded WAV ${path}: ${reason}`);
 }
 
 /** Reads the project's fixed PCM WAV format without introducing an FFmpeg runtime dependency. */
@@ -101,6 +102,41 @@ export async function loadRussianStartupAudio(): Promise<
   ];
   const files = await Promise.all(paths.map((path) => readPcmWav(path)));
   return files.flat();
+}
+
+/**
+ * Discovers filler1.wav, filler2.wav, ... and loads them in numeric order.
+ * Gaps are allowed, so adding or removing a clip never requires a TypeScript change.
+ */
+export async function loadRussianTurnFillers(): Promise<
+  readonly (readonly AudioFrame[])[]
+> {
+  const directory = fileURLToPath(new URL("../audio/ru/", import.meta.url));
+  const entries = await readdir(directory, { withFileTypes: true });
+  const numberedFiles = entries
+    .filter((entry) => entry.isFile())
+    .flatMap((entry) => {
+      const match = /^filler([1-9]\d*)\.wav$/.exec(entry.name);
+      return match === null
+        ? []
+        : [{ name: entry.name, number: Number(match[1]) }];
+    })
+    .sort((left, right) => left.number - right.number);
+
+  if (numberedFiles.length === 0) {
+    throw new Error(`No turn filler WAV files found in ${directory}`);
+  }
+  for (let index = 1; index < numberedFiles.length; index += 1) {
+    if (numberedFiles[index]?.number === numberedFiles[index - 1]?.number) {
+      throw new Error(
+        `Duplicate turn filler number ${numberedFiles[index]?.number} in ${directory}`,
+      );
+    }
+  }
+
+  return Promise.all(
+    numberedFiles.map(({ name }) => readPcmWav(join(directory, name))),
+  );
 }
 
 /** Creates the one-use stream expected by AgentSession.say(). */
