@@ -11,13 +11,8 @@ vi.mock("@livekit/agents-plugin-silero", () => {
   return {};
 });
 
-vi.mock("@livekit/agents-plugin-livekit", () => {
-  events.push("plugin:@livekit/agents-plugin-livekit");
-  return {};
-});
-
 describe("download-files plugin registration", () => {
-  it("registers Silero and turn-detector assets before starting the config-free CLI", async () => {
+  it("registers Silero assets before starting the config-free CLI", async () => {
     const runCli = vi.fn(async () => {
       events.push("cli");
     });
@@ -28,14 +23,7 @@ describe("download-files plugin registration", () => {
 
     await startDownloadFiles(undefined, runCli);
 
-    expect(downloadPluginSpecifiers).toEqual([
-      "@livekit/agents-plugin-silero",
-      "@livekit/agents-plugin-livekit",
-    ]);
-    expect(events).toEqual([
-      "plugin:@livekit/agents-plugin-silero",
-      "plugin:@livekit/agents-plugin-livekit",
-      "cli",
-    ]);
+    expect(downloadPluginSpecifiers).toEqual(["@livekit/agents-plugin-silero"]);
+    expect(events).toEqual(["plugin:@livekit/agents-plugin-silero", "cli"]);
   });
 });

@@ -9,6 +9,29 @@ import { LANGUAGES, type Language } from "@hello-table/contracts";
  */
 
 const enabledLanguages: readonly string[] = LANGUAGES;
+const cyrillicLetter = /\p{Script=Cyrillic}/u;
+const latinLetter = /\p{Script=Latin}/u;
+
+/**
+ * Уточняет язык по уже готовому тексту финального транскрипта.
+ *
+ * Короткие имена и перечисления чисел OpenAI иногда корректно пишет кириллицей, но
+ * ошибочно помечает как `de`. Чистая кириллица надёжнее этой акустической метки, поэтому
+ * локально считаем такую реплику русской. Смешанный текст оставляем STT: иначе одно
+ * название блюда кириллицей внутри немецкой фразы переключило бы весь разговор.
+ *
+ * Проверка синхронная, без выделения массивов: максимум два линейных прохода по короткой
+ * строке и никакой дополнительной сети или ожидания перед LLM.
+ */
+export function languageForTranscript(
+  transcript: string,
+  detected: string | null | undefined,
+): string | null {
+  if (cyrillicLetter.test(transcript) && !latinLetter.test(transcript)) {
+    return "ru";
+  }
+  return detected ?? null;
+}
 
 /**
  * Приводит код фреймворка (`de`, `de-DE`, `ru_RU`, `en-GB`) к языку разговора.

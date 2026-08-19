@@ -15,7 +15,6 @@
   "dependencies": {
     "@hello-table/contracts": "workspace:*",
     "@livekit/agents": "1.6.4",
-    "@livekit/agents-plugin-livekit": "1.6.4",
     "@livekit/agents-plugin-openai": "1.6.4",
     "@livekit/agents-plugin-silero": "1.6.4",
     "@livekit/rtc-node": "0.13.33",

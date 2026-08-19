@@ -23,7 +23,7 @@ describe("loadConfig", () => {
     expect(config.AGENT_DEFAULT_LANGUAGE).toBe("de");
     expect(config.AGENT_ENABLED_LANGUAGES).toEqual(["de", "ru", "en"]);
     expect(config.AGENT_LANGUAGE_SWITCH_AFTER).toBe(2);
-    expect(config.AGENT_TURN_DETECTOR).toBe("multilingual");
+    expect(config.AGENT_TURN_DETECTOR).toBe("audio");
     expect(config.AGENT_MIN_ENDPOINTING_DELAY_MS).toBe(500);
     expect(config.AGENT_MAX_ENDPOINTING_DELAY_MS).toBe(3_000);
     expect(config.STT_MODEL).toBe("scribe_v2_realtime");

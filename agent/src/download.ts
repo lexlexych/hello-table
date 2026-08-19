@@ -1,6 +1,5 @@
 export const downloadPluginSpecifiers = [
   "@livekit/agents-plugin-silero",
-  "@livekit/agents-plugin-livekit",
 ] as const;
 
 export type DownloadPluginSpecifier = (typeof downloadPluginSpecifiers)[number];
@@ -15,9 +14,6 @@ async function importDownloadPlugin(
   switch (specifier) {
     case "@livekit/agents-plugin-silero":
       await import("@livekit/agents-plugin-silero");
-      return;
-    case "@livekit/agents-plugin-livekit":
-      await import("@livekit/agents-plugin-livekit");
       return;
   }
 }

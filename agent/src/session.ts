@@ -5,8 +5,7 @@ import {
   type Language,
   TRANSPORT_TOOL_ERRORS,
 } from "@hello-table/contracts";
-import { type llm, type VAD, voice } from "@livekit/agents";
-import * as livekit from "@livekit/agents-plugin-livekit";
+import { inference, type llm, type VAD, voice } from "@livekit/agents";
 import * as openai from "@livekit/agents-plugin-openai";
 import type { Room } from "@livekit/rtc-node";
 import { parse } from "yaml";
@@ -116,9 +115,11 @@ export function buildPipelineSessionOptions(
   stt: openai.STT,
   tts: OpenAIStreamingTTS,
 ): voice.AgentSessionOptions {
+  // Пин на v1-mini исключает автоматический выбор облачного v1 в dev/hosted режиме:
+  // аудио конца реплики обрабатывается локально через @livekit/local-inference.
   const turnDetection =
-    cfg.AGENT_TURN_DETECTOR === "multilingual"
-      ? new livekit.turnDetector.MultilingualModel()
+    cfg.AGENT_TURN_DETECTOR === "audio"
+      ? new inference.TurnDetector({ version: "v1-mini" })
       : "vad";
 
   const llmOptions: openai.LLMOptions = {

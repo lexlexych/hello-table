@@ -16,8 +16,10 @@ input transcription отключена, поэтому в Realtime экран т
 (`gpt-transcribe` возвращает его в `UserInputTranscribed.language`), а `LanguageTracker`
 в `src/language.ts` решает, когда переключиться: не раньше чем через
 `AGENT_LANGUAGE_SWITCH_AFTER` подряд идущих реплик на другом языке, чтобы одно иностранное
-слово не меняло язык. Смена языка меняет фиксированные фразы, филлеры, тексты ошибок и
-голосовой профиль TTS; единый системный промпт остаётся неизменным.
+слово не меняло язык. Перед трекером финальный текст проверяется локально: реплика с
+кириллицей и без латинских букв считается русской, даже если STT ошибочно пометил короткое
+имя или перечисление чисел как немецкое. Смена языка меняет фиксированные фразы, филлеры,
+тексты ошибок и голосовой профиль TTS; единый системный промпт остаётся неизменным.
 
 ## Требования
 
@@ -55,10 +57,10 @@ pnpm agent:download-files
 pnpm agent:dev
 ```
 
-`agent:download-files` импортирует плагины Silero и multilingual turn detector, после чего
-LiveKit CLI скачивает их локальные модели с Hugging Face. Команде не нужны runtime-конфиг
-или API-секреты; она нужна до первого старта воркера. В обычном режиме воркер модель сам не
-скачивает.
+`agent:download-files` импортирует плагин Silero, после чего LiveKit CLI скачивает его
+локальную модель. Команде не нужны runtime-конфиг или API-секреты; она нужна до первого
+старта воркера. Встроенный аудиодетектор конца реплики `turn-detector-v1-mini` работает
+локально через `@livekit/local-inference` и отдельной загрузки с Hugging Face не требует.
 
 В другой оболочке выпустите токен:
 
@@ -75,9 +77,10 @@ pnpm dev:token -- test-room browser-user
 
 ## Настройка пауз
 
-Сравните `AGENT_TURN_DETECTOR=multilingual` и `off`. Значение `off` сохраняет обязательный
-Silero VAD, но не использует multilingual turn detector. Порог окончания реплики задают
-`AGENT_MIN_ENDPOINTING_DELAY_MS` и `AGENT_MAX_ENDPOINTING_DELAY_MS`.
+Сравните `AGENT_TURN_DETECTOR=audio` и `off`. Значение `audio` включает встроенный локальный
+`turn-detector-v1-mini`, который анализирует последние аудиокадры; `off` сохраняет
+обязательный Silero VAD, но не использует смысловой детектор конца реплики. Порог окончания
+реплики задают `AGENT_MIN_ENDPOINTING_DELAY_MS` и `AGENT_MAX_ENDPOINTING_DELAY_MS`.
 
 > **PII blocker:** LiveKit Agents 1.6.4 на уровне `info` пишет `newTranscript` при
 > preemptive generation и `message` после playout. До отдельного исправления запускайте

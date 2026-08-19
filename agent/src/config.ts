@@ -99,9 +99,8 @@ export const configSchema = z
       .max(5)
       .default(2),
 
-    AGENT_TURN_DETECTOR: z
-      .enum(["multilingual", "off"])
-      .default("multilingual"),
+    /** `audio` — локальный audio-EOT v1-mini; `off` — только Silero VAD. */
+    AGENT_TURN_DETECTOR: z.enum(["audio", "off"]).default("audio"),
     AGENT_MIN_ENDPOINTING_DELAY_MS: z.coerce
       .number()
       .int()

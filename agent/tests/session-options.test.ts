@@ -1,6 +1,6 @@
-import type { VAD } from "@livekit/agents";
+import { inference, type VAD } from "@livekit/agents";
 import type { Room } from "@livekit/rtc-node";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.ts";
 import {
   buildSessionOptions,
@@ -10,13 +10,7 @@ import {
   createRestaurantAgent,
 } from "../src/session.ts";
 
-vi.mock("@livekit/agents-plugin-livekit", () => ({
-  turnDetector: {
-    MultilingualModel: class MultilingualModel {},
-  },
-}));
-
-function config(turnDetector: "multilingual" | "off" = "multilingual") {
+function config(turnDetector: "audio" | "off" = "audio") {
   return loadConfig({
     LIVEKIT_URL: "ws://localhost:7880",
     LIVEKIT_API_KEY: "test-key",
@@ -46,7 +40,7 @@ describe("session options", () => {
     });
   });
 
-  it("copies endpointing delays and enables the multilingual detector", () => {
+  it("copies endpointing delays and enables the local audio detector", () => {
     const options = buildSessionOptions(
       config(),
       {} as VAD,
@@ -59,10 +53,15 @@ describe("session options", () => {
       minDelay: 350,
       maxDelay: 2_500,
     });
-    expect(options.turnHandling?.turnDetection).toBeTypeOf("object");
+    expect(options.turnHandling?.turnDetection).toBeInstanceOf(
+      inference.TurnDetector,
+    );
+    expect(options.turnHandling?.turnDetection).toMatchObject({
+      model: "turn-detector-v1-mini",
+    });
   });
 
-  it("uses VAD endpointing without constructing a multilingual detector when disabled", () => {
+  it("uses VAD endpointing without constructing an audio detector when disabled", () => {
     const options = buildSessionOptions(
       config("off"),
       {} as VAD,

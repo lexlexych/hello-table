@@ -7,7 +7,7 @@ import {
 } from "@livekit/agents";
 import * as silero from "@livekit/agents-plugin-silero";
 import type { Config } from "./config.ts";
-import { LanguageTracker } from "./language.ts";
+import { LanguageTracker, languageForTranscript } from "./language.ts";
 import { getAgentRuntimeSettings } from "./runtime-settings.ts";
 import {
   buildPipelineSessionOptions,
@@ -58,10 +58,7 @@ export function createAgent(config: Config) {
 
       const state: SessionLanguageState = {
         language: config.AGENT_DEFAULT_LANGUAGE,
-        phrases: resourceFor(
-          phrasesByLanguage,
-          config.AGENT_DEFAULT_LANGUAGE,
-        ),
+        phrases: resourceFor(phrasesByLanguage, config.AGENT_DEFAULT_LANGUAGE),
       };
 
       const tools = buildTools(
@@ -123,7 +120,9 @@ export function createAgent(config: Config) {
         if (!event.isFinal) {
           return;
         }
-        const { language, changed } = tracker.observe(event.language);
+        const { language, changed } = tracker.observe(
+          languageForTranscript(event.transcript, event.language),
+        );
         if (!changed) {
           return;
         }
