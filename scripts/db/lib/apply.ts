@@ -137,12 +137,14 @@ export async function setRolePasswords(
     agentApp?: string | undefined;
     n8nApp?: string | undefined;
     portalApp?: string | undefined;
+    websiteApp?: string | undefined;
   },
 ): Promise<void> {
   for (const [role, value] of [
     ["agent_app", passwords.agentApp],
     ["n8n_app", passwords.n8nApp],
     ["portal_app", passwords.portalApp],
+    ["website_app", passwords.websiteApp],
   ] as const) {
     if (!value) {
       // Раньше здесь стоял ALTER ROLE ... NOLOGIN. Это разрушительное действие на весь

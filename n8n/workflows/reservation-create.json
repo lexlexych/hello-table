@@ -117,7 +117,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  reservation_id,\n  booked_table_label AS table_label,\n  confirmed_starts_at AS starts_at,\n  confirmed_ends_at AS ends_at\nFROM create_reservation_for_table(\n  $1::uuid, $2::uuid, $3::date, $4::time, $5::int,\n  $6::text, $7::text, $8::char(2), 'website'::text\n);",
+        "query": "SELECT\n  reservation_id,\n  booked_table_label AS table_label,\n  confirmed_starts_at AS starts_at,\n  confirmed_ends_at AS ends_at\nFROM create_reservation_for_table(\n  $1::uuid, $2::uuid, $3::date, $4::time, $5::int,\n  $6::text, $7::text, $8::char(2), 'phone'::text\n);",
         "options": {
           "queryBatching": "single",
           "queryReplacement": "={{ [$json.payload.restaurant_id, $json.payload.table_id, $json.payload.date, $json.payload.time, $json.payload.party_size, $json.payload.guest_name, $json.payload.guest_phone, $json.payload.language] }}"

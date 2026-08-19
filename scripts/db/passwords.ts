@@ -3,7 +3,7 @@ import { assertAppOwner, setRolePasswords } from "./lib/apply.ts";
 import { resolveTarget, rolePasswords } from "./lib/config.ts";
 
 /**
- * Синхронизирует пароли runtime-ролей `agent_app`, `n8n_app` и `portal_app`.
+ * Синхронизирует пароли runtime-ролей `agent_app`, `n8n_app`, `portal_app` и `website_app`.
  *
  * Зачем отдельная команда: роли в PostgreSQL живут в кластере, а не в базе. Прогон
  * `pnpm test` пересоздаёт базу `restaurant_test` в том же кластере и выставляет ролям

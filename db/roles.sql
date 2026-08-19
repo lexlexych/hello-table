@@ -1,6 +1,6 @@
-DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='agent_app') THEN CREATE ROLE agent_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='n8n_app') THEN CREATE ROLE n8n_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='portal_app') THEN CREATE ROLE portal_app LOGIN; END IF; END $$;
-DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO agent_app, n8n_app, portal_app',current_database()); END $$;
-GRANT USAGE ON SCHEMA public TO agent_app,n8n_app,portal_app; REVOKE CREATE ON SCHEMA public FROM PUBLIC; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM agent_app,n8n_app;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='agent_app') THEN CREATE ROLE agent_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='n8n_app') THEN CREATE ROLE n8n_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='portal_app') THEN CREATE ROLE portal_app LOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='website_app') THEN CREATE ROLE website_app LOGIN; END IF; END $$;
+DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO agent_app, n8n_app, portal_app, website_app',current_database()); END $$;
+GRANT USAGE ON SCHEMA public TO agent_app,n8n_app,portal_app,website_app; REVOKE CREATE ON SCHEMA public FROM PUBLIC; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM agent_app,n8n_app,website_app;
 GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA public TO portal_app; REVOKE ALL ON TABLE schema_migrations FROM portal_app;
 -- DELETE выдаётся точечно и только на справочники, которыми администратор управляет из портала.
 -- Операционные таблицы (брони, заказы, обратные звонки, журнал звонков) содержат персональные
@@ -13,10 +13,14 @@ ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public REVOKE EXECUTE ON F
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 -- Переприменение файла всегда возвращает agent_app к точному белому списку ниже.
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM agent_app;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM website_app;
 GRANT EXECUTE ON FUNCTION find_available_slots(uuid,date,int,time,int),create_reservation_atomic(uuid,timestamptz,int,text,text,char,text),cancel_reservation_by_phone(uuid,text,date),find_menu_items(uuid,text,char,bool,bool,text[],int),find_pickup_slots(uuid,timestamptz,int,int),create_pickup_order_atomic(uuid,jsonb,timestamptz,text,text,char,text),create_callback_request(uuid,text,char,text,text) TO n8n_app,portal_app;
 -- Голосовой агент вызывает эти две RPC напрямую под отдельной ролью; n8n сохраняет доступ
 -- для тех же операций из будущего чата и формуляра. Обе роли не читают таблицы.
 GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO agent_app,n8n_app;
+-- Публичный сайт вызывает только поиск и атомарную бронь из серверных route handlers.
+-- Роль не читает таблицы и не может выполнять другие функции.
+GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO website_app;
 -- Актуальное меню голосовой агент читает напрямую; n8n не является частью звонка.
 GRANT EXECUTE ON FUNCTION get_current_menu(uuid,char) TO agent_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;

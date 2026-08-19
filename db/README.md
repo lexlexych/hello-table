@@ -11,7 +11,7 @@ new one. Every new function must also receive an explicit `REVOKE`/`GRANT` in `r
 `DB_RESET_CONFIRM=1 pnpm db:reset`. The runner never loads `.env`; pass configuration through
 the process environment. Reset refuses non-loopback database hosts.
 
-`pnpm db:passwords` sets the `agent_app`, `n8n_app` and `portal_app` passwords from the environment
+`pnpm db:passwords` sets the `agent_app`, `n8n_app`, `portal_app` and `website_app` passwords from the environment
 without touching the schema. It is the one db command that reads `.env`. Use it whenever a
 role password in the cluster drifts from what an application's connection string expects
 (`28P01`).
@@ -33,6 +33,8 @@ reference tables — `restaurant_tables`, `menu_categories`, `menu_items` — wh
 administrator edits. Operational tables hold personal data and are pruned only by
 `purge_expired_personal_data()`; the grant is deliberately kept out of
 `ALTER DEFAULT PRIVILEGES` so a future table cannot inherit it silently.
+`website_app` is the public-site server role: it cannot access tables and can execute only
+`find_available_tables` and `create_reservation_for_table`.
 
 Note for callers: `ON DELETE RESTRICT` raises SQLSTATE **23001** (`restrict_violation`),
 not 23503.

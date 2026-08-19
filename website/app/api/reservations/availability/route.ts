@@ -1,4 +1,5 @@
-import { checkAvailability } from "@/lib/n8n-client";
+import { databaseErrorCode, findAvailableTables, getWebsiteDatabase } from "@/lib/database";
+import { getWebsiteConfig } from "@/lib/config";
 import { rateLimit, requestKey } from "@/lib/rate-limit";
 import { availabilityRequestSchema } from "@/lib/schemas";
 
@@ -15,8 +16,14 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    return Response.json(await checkAvailability(input.data));
-  } catch {
+    const config = getWebsiteConfig();
+    return Response.json(
+      await findAvailableTables(getWebsiteDatabase(), config.restaurantId, input.data),
+    );
+  } catch (error) {
+    console.error("website availability failed", {
+      code: databaseErrorCode(error) ?? "configuration_or_database",
+    });
     return Response.json({ ok: false, error: "service_unavailable" }, { status: 503 });
   }
 }
