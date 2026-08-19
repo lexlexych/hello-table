@@ -329,6 +329,14 @@ textarea {
   font-size: 0.9rem;
 }
 
+.call-timer {
+  min-width: 4.5rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+
 .call-error {
   color: var(--danger);
   margin: 0 0 1rem;

@@ -28,6 +28,19 @@ const ATTRIBUTE_FINAL = "lk.transcription_final";
 /** Сколько ждём воркер агента, прежде чем сказать, что он не пришёл. */
 const AGENT_JOIN_TIMEOUT_MS = 12_000;
 
+function formatCallDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [minutes, seconds];
+
+  if (hours > 0) {
+    parts.unshift(hours);
+  }
+
+  return parts.map((part) => String(part).padStart(2, "0")).join(":");
+}
+
 type Phase = "idle" | "connecting" | "live";
 
 interface Turn {
@@ -76,11 +89,37 @@ export default function TestCall() {
   const [error, setError] = useState<string | undefined>(undefined);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [callDurationSeconds, setCallDurationSeconds] = useState(0);
 
   const roomRef = useRef<Room | undefined>(undefined);
   const audioHostRef = useRef<HTMLDivElement | null>(null);
   const identityRef = useRef<string>("");
   const seqRef = useRef(0);
+  const callStartedAtRef = useRef<number | undefined>(undefined);
+  const timerRef = useRef<number | undefined>(undefined);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current !== undefined) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = undefined;
+    }
+
+    const startedAt = callStartedAtRef.current;
+    if (startedAt !== undefined) {
+      setCallDurationSeconds(Math.floor((Date.now() - startedAt) / 1_000));
+      callStartedAtRef.current = undefined;
+    }
+  }, []);
+
+  const startTimer = useCallback(() => {
+    stopTimer();
+    const startedAt = Date.now();
+    callStartedAtRef.current = startedAt;
+    setCallDurationSeconds(0);
+    timerRef.current = window.setInterval(() => {
+      setCallDurationSeconds(Math.floor((Date.now() - startedAt) / 1_000));
+    }, 1_000);
+  }, [stopTimer]);
 
   const upsertTurn = useCallback((update: Turn) => {
     setTurns((current) => {
@@ -129,17 +168,20 @@ export default function TestCall() {
   const stopCall = useCallback(async () => {
     const room = roomRef.current;
     roomRef.current = undefined;
+    stopTimer();
     setPhase("idle");
     setNotice(undefined);
     if (room) {
       await room.disconnect();
     }
-  }, []);
+  }, [stopTimer]);
 
   const startCall = useCallback(async () => {
     setError(undefined);
     setNotice(undefined);
     setTurns([]);
+    stopTimer();
+    setCallDurationSeconds(0);
     setPhase("connecting");
 
     let room: Room | undefined;
@@ -173,7 +215,11 @@ export default function TestCall() {
       room.on(RoomEvent.ParticipantConnected, () => setNotice(undefined));
 
       room.on(RoomEvent.Disconnected, () => {
+        if (roomRef.current !== room) {
+          return;
+        }
         roomRef.current = undefined;
+        stopTimer();
         setPhase("idle");
       });
 
@@ -188,6 +234,7 @@ export default function TestCall() {
 
       roomRef.current = room;
       setPhase("live");
+      startTimer();
 
       setTimeout(() => {
         const current = roomRef.current;
@@ -204,13 +251,17 @@ export default function TestCall() {
     } catch (cause) {
       await room?.disconnect();
       roomRef.current = undefined;
+      stopTimer();
       setPhase("idle");
       setError(describeConnectError(cause));
     }
-  }, [readTranscription]);
+  }, [readTranscription, startTimer, stopTimer]);
 
   useEffect(() => {
     return () => {
+      if (timerRef.current !== undefined) {
+        window.clearInterval(timerRef.current);
+      }
       void roomRef.current?.disconnect();
       roomRef.current = undefined;
     };
@@ -218,11 +269,6 @@ export default function TestCall() {
 
   return (
     <section>
-      <p className="note">
-        Разговор идёт по-немецки: агент пока одноязычный. Инструменты не
-        подключены — забронировать столик он не может и честно об этом скажет.
-      </p>
-
       <div className="call-controls">
         {phase === "live" ? (
           <button type="button" onClick={() => void stopCall()}>
@@ -238,6 +284,9 @@ export default function TestCall() {
             {phase === "connecting" ? "Соединяю…" : "Позвонить"}
           </button>
         )}
+        <time className="call-timer" dateTime={`PT${callDurationSeconds}S`}>
+          {formatCallDuration(callDurationSeconds)}
+        </time>
         <span className="call-status">
           {phase === "live"
             ? "Идёт разговор — говорите в микрофон"
