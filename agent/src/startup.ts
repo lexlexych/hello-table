@@ -1,3 +1,5 @@
+import type { ReadableStream } from "node:stream/web";
+import type { AudioFrame } from "@livekit/rtc-node";
 import type { Config } from "./config.ts";
 import { loadConfig } from "./config.ts";
 import type { buildStartOptions } from "./session.ts";
@@ -15,7 +17,11 @@ export interface DisclosureSession {
   start(options: ReturnType<typeof buildStartOptions>): Promise<void>;
   say(
     text: string,
-    options: { addToChatCtx: false; allowInterruptions: false },
+    options: {
+      audio?: ReadableStream<AudioFrame>;
+      addToChatCtx: false;
+      allowInterruptions: false;
+    },
   ): DisclosureSpeechHandle;
 }
 
@@ -54,14 +60,23 @@ export async function startSessionWithDisclosure(
   session: DisclosureSession,
   startOptions: ReturnType<typeof buildStartOptions>,
   disclosureAndGreeting: string,
+  audio?: ReadableStream<AudioFrame>,
 ): Promise<void> {
   session.input.setAudioEnabled(false);
   try {
     await session.start(startOptions);
-    const handle = session.say(disclosureAndGreeting, {
+    const sayOptions: {
+      audio?: ReadableStream<AudioFrame>;
+      addToChatCtx: false;
+      allowInterruptions: false;
+    } = {
       addToChatCtx: false,
       allowInterruptions: false,
-    });
+    };
+    if (audio !== undefined) {
+      sayOptions.audio = audio;
+    }
+    const handle = session.say(disclosureAndGreeting, sayOptions);
     await handle.waitForPlayout();
   } finally {
     session.input.setAudioEnabled(true);

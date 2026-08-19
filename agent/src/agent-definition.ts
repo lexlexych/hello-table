@@ -26,6 +26,7 @@ import {
   startRealtimeSessionWithDisclosure,
   startSessionWithDisclosure,
 } from "./startup.ts";
+import { loadRussianStartupAudio, streamAudioFrames } from "./startup-audio.ts";
 import { attachTelemetry } from "./telemetry.ts";
 import { createAgentDatabase } from "./tools/database.ts";
 import { buildTools } from "./tools/index.ts";
@@ -60,6 +61,9 @@ export function createAgent(config: Config) {
         language: config.AGENT_DEFAULT_LANGUAGE,
         phrases: resourceFor(phrasesByLanguage, config.AGENT_DEFAULT_LANGUAGE),
       };
+      const startupText = `${state.phrases.ai_disclosure} ${state.phrases.greeting}`;
+      const russianStartupAudio =
+        state.language === "ru" ? await loadRussianStartupAudio() : undefined;
 
       const tools = buildTools(
         config,
@@ -78,11 +82,20 @@ export function createAgent(config: Config) {
         attachTelemetry(session, ctx, {
           logTranscripts: config.AGENT_LOG_TRANSCRIPTS,
         });
-        await startRealtimeSessionWithDisclosure(
-          session,
-          buildStartOptions(agent, ctx.room),
-          `${state.phrases.ai_disclosure} ${state.phrases.greeting}`,
-        );
+        if (russianStartupAudio !== undefined) {
+          await startSessionWithDisclosure(
+            session,
+            buildStartOptions(agent, ctx.room),
+            startupText,
+            streamAudioFrames(russianStartupAudio),
+          );
+        } else {
+          await startRealtimeSessionWithDisclosure(
+            session,
+            buildStartOptions(agent, ctx.room),
+            startupText,
+          );
+        }
         return;
       }
 
@@ -137,7 +150,10 @@ export function createAgent(config: Config) {
       await startSessionWithDisclosure(
         session,
         buildStartOptions(agent, ctx.room),
-        `${state.phrases.ai_disclosure} ${state.phrases.greeting}`,
+        startupText,
+        russianStartupAudio === undefined
+          ? undefined
+          : streamAudioFrames(russianStartupAudio),
       );
     },
   });
