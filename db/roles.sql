@@ -23,6 +23,8 @@ GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reser
 GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO website_app;
 -- Актуальное меню голосовой агент читает напрямую; n8n не является частью звонка.
 GRANT EXECUTE ON FUNCTION get_current_menu(uuid,char) TO agent_app;
+-- До создания голосовой сессии агент читает только выбранный для ресторана движок.
+GRANT EXECUTE ON FUNCTION get_agent_runtime_settings(uuid) TO agent_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;
 -- Дневная бронь столика из портала (PROJECT.md §7.3): право только у portal_app.
 -- n8n_app получит его вместе с workflow бронирования — заглушек не заводим.

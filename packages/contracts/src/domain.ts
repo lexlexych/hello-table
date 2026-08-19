@@ -10,6 +10,11 @@ export const LANGUAGES = ["de", "ru", "en"] as const;
 export const languageSchema = z.enum(LANGUAGES);
 export type Language = z.infer<typeof languageSchema>;
 
+/** Голосовой движок ресторана; совпадает с CHECK restaurants.voice_mode. */
+export const VOICE_MODES = ["pipeline", "realtime"] as const;
+export const voiceModeSchema = z.enum(VOICE_MODES);
+export type VoiceMode = z.infer<typeof voiceModeSchema>;
+
 /** Совпадает с CHECK на callback_requests.category. */
 export const CALLBACK_CATEGORIES = [
   "banquet",

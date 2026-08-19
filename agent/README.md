@@ -4,6 +4,14 @@
 бронирования через Postgres RPC. n8n процесс агента не вызывает. Аудио и транскрипты не сохраняются;
 `AgentSession.start()` всегда получает явный `record: false`.
 
+Перед каждым новым звонком агент читает `restaurants.voice_mode`. `pipeline` запускает
+существующую цепочку OpenAI STT → LLM → TTS. `realtime` запускает только
+`gpt-realtime-2.1` audio-to-audio: без отдельного STT, TTS, Silero и без филлеров. Даже
+input transcription отключена, поэтому в Realtime экран тестового звонка не показывает
+текст гостя. Режим меняется администратором на `/settings`; активный звонок не меняется.
+Общий системный промпт отдельно требует от audio-модели нейтрального русского
+произношения и запрещает копировать акцент гостя; это указание не меняет Pipeline TTS.
+
 Разговор начинается на `AGENT_DEFAULT_LANGUAGE`. Дальше язык определяет распознавание
 (`gpt-transcribe` возвращает его в `UserInputTranscribed.language`), а `LanguageTracker`
 в `src/language.ts` решает, когда переключиться: не раньше чем через
@@ -16,6 +24,8 @@
 - Node.js 24 и pnpm 11;
 - Docker Compose для локального LiveKit;
 - реальный тестовый ключ OpenAI для STT, LLM и TTS — только для ручного разговора;
+- для Realtime — тот же ключ и доступ проекта к `REALTIME_MODEL`; голос и effort задаются
+  `REALTIME_VOICE` и `REALTIME_REASONING_EFFORT`;
 - выбранный голос OpenAI `tts-1`; один голос можно использовать для всех языков либо
   переопределить через `TTS_VOICE_DE`, `TTS_VOICE_RU`, `TTS_VOICE_EN`;
 - локальный PostgreSQL с миграциями и seed, строка `AGENT_DATABASE_URL` под ролью `agent_app`;
@@ -29,6 +39,9 @@
 `devkey` / `secret`; никогда не переносите их в production. `OPENAI_BASE_URL`: обычный проект
 использует стандартный адрес, а `https://eu.api.openai.com/v1` — только OpenAI-проект с
 включёнными EU data residency и ZDR.
+
+Миграция базы обязательна: без `voice_mode` и `get_agent_runtime_settings` агент не создаёт
+ни один из голосовых путей. Значение по умолчанию — `pipeline`.
 
 ## Первый запуск
 

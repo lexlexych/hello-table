@@ -1,5 +1,6 @@
 import type { Config } from "../config.ts";
-import type { SessionLanguageState } from "../session.ts";
+import type { Language, VoiceMode } from "@hello-table/contracts";
+import type { Phrases, SessionLanguageState } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
 import { searchMenuTool } from "./menu.ts";
 import {
@@ -15,11 +16,15 @@ import type { ToolDeps } from "./shared.ts";
 export function buildTools(
   config: Config,
   session: SessionLanguageState,
+  phrasesByLanguage: Partial<Record<Language, Phrases>>,
   database: AgentDatabase,
+  voiceMode: VoiceMode,
 ) {
   const deps: ToolDeps = {
     database,
     session,
+    phrasesByLanguage,
+    voiceMode,
     restaurantId: config.RESTAURANT_ID,
   };
 

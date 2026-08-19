@@ -19,6 +19,17 @@ export interface DisclosureSession {
   ): DisclosureSpeechHandle;
 }
 
+export interface RealtimeDisclosureSession {
+  input: {
+    setAudioEnabled(enabled: boolean): void;
+  };
+  start(options: ReturnType<typeof buildStartOptions>): Promise<void>;
+  generateReply(options: {
+    instructions: string;
+    allowInterruptions: true;
+  }): DisclosureSpeechHandle;
+}
+
 /**
  * Runtime worker commands need all provider and LiveKit settings before loading the runner.
  * `download-files` has a separate config-free entrypoint that registers asset-owning plugins.
@@ -50,6 +61,31 @@ export async function startSessionWithDisclosure(
     const handle = session.say(disclosureAndGreeting, {
       addToChatCtx: false,
       allowInterruptions: false,
+    });
+    await handle.waitForPlayout();
+  } finally {
+    session.input.setAudioEnabled(true);
+  }
+}
+
+/**
+ * Realtime не имеет отдельного TTS, поэтому первую фразу генерирует сама audio-модель.
+ * Вход остаётся выключенным до полного playout; `allowInterruptions: true` требуется
+ * server-side turn detection, но фактически перебить реплику при выключенном входе нельзя.
+ */
+export async function startRealtimeSessionWithDisclosure(
+  session: RealtimeDisclosureSession,
+  startOptions: ReturnType<typeof buildStartOptions>,
+  disclosureAndGreeting: string,
+): Promise<void> {
+  session.input.setAudioEnabled(false);
+  try {
+    await session.start(startOptions);
+    const handle = session.generateReply({
+      instructions:
+        "Speak the following mandatory AI disclosure and greeting verbatim, in its original " +
+        `language. Do not add, omit, or paraphrase anything: ${JSON.stringify(disclosureAndGreeting)}`,
+      allowInterruptions: true,
     });
     await handle.waitForPlayout();
   } finally {

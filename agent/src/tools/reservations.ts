@@ -1,9 +1,17 @@
-import type { AvailableTable } from "@hello-table/contracts";
+import {
+  type AvailableTable,
+} from "@hello-table/contracts";
 import { llm } from "@livekit/agents";
 import { z } from "zod";
-import { withFiller } from "./filler.ts";
 import { createReservation, findAvailableTables } from "./reservations-db.ts";
-import { failure, type ToolDeps, type ToolReply } from "./shared.ts";
+import {
+  callWithVoiceMode,
+  failure,
+  resolveToolLanguage,
+  toolLanguageParameter,
+  type ToolDeps,
+  type ToolReply,
+} from "./shared.ts";
 
 /**
  * Инструменты бронирования. Порядок задан структурой, а не только промптом:
@@ -32,12 +40,15 @@ export function checkAvailabilityTool(deps: ToolDeps) {
         .number()
         .int()
         .describe("Anzahl der Gäste, inklusive Kinder"),
+      language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (
       args,
       opts,
     ): Promise<ToolReply<{ tables: AvailableTable[] }>> => {
-      const outcome = await withFiller(
+      resolveToolLanguage(deps, args.language);
+      const outcome = await callWithVoiceMode(
+        deps,
         opts.ctx.session,
         deps.session.phrases.filler_checking,
         () =>
@@ -75,6 +86,7 @@ export function createReservationTool(deps: ToolDeps) {
         .string()
         .nullable()
         .describe("Telefonnummer des Gastes oder null, wenn nicht genannt"),
+      language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (
       args,
@@ -87,7 +99,9 @@ export function createReservationTool(deps: ToolDeps) {
         ends_at: string;
       }>
     > => {
-      const outcome = await withFiller(
+      const language = resolveToolLanguage(deps, args.language);
+      const outcome = await callWithVoiceMode(
+        deps,
         opts.ctx.session,
         deps.session.phrases.filler_booking,
         () =>
@@ -101,7 +115,7 @@ export function createReservationTool(deps: ToolDeps) {
             guest_phone: args.guest_phone,
             // Язык разговора на момент брони: он попадает в reservations.language и
             // определяет язык подтверждений и уведомлений (PROJECT.md §4.1 п.5).
-            language: deps.session.language,
+            language,
           }),
       );
 

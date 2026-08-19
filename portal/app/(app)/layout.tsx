@@ -27,6 +27,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/test-call">Тестовый звонок</NavLink>
           <NavLink href="/tables">Столики</NavLink>
           <NavLink href="/menu">Меню</NavLink>
+          {session.role === "admin" ? (
+            <NavLink href="/settings">Настройки</NavLink>
+          ) : null}
         </nav>
         <main className="shell-main">{children}</main>
       </div>

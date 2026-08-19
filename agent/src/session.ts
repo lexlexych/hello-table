@@ -110,7 +110,7 @@ export function buildTts(cfg: Config, language: Language): OpenAIStreamingTTS {
  * STT и TTS передаются готовыми, а не создаются здесь: на объект TTS нужна ссылка, чтобы
  * переключать язык и голос по ходу разговора.
  */
-export function buildSessionOptions(
+export function buildPipelineSessionOptions(
   cfg: Config,
   vad: VAD,
   stt: openai.STT,
@@ -145,6 +145,45 @@ export function buildSessionOptions(
         maxDelay: cfg.AGENT_MAX_ENDPOINTING_DELAY_MS,
       },
     },
+  };
+}
+
+/** Сохранённое имя публичного factory существующего pipeline. */
+export const buildSessionOptions = buildPipelineSessionOptions;
+
+/**
+ * Полностью самостоятельная audio-to-audio сессия OpenAI Realtime.
+ *
+ * `vad: null` важен: без него AgentSession автоматически создал бы локальный Silero.
+ * Отдельные STT и TTS намеренно отсутствуют; semantic VAD и звук принадлежат одной модели.
+ */
+export function buildRealtimeSessionOptions(
+  cfg: Config,
+): voice.AgentSessionOptions {
+  const modelOptions = {
+    apiKey: cfg.OPENAI_API_KEY,
+    model: cfg.REALTIME_MODEL,
+    voice: cfg.REALTIME_VOICE,
+    reasoning: { effort: cfg.REALTIME_REASONING_EFFORT },
+    // Модель понимает входное аудио сама. Даже вспомогательную transcription-модель
+    // не запускаем: это был бы отдельный STT, который для ответа не нужен.
+    inputAudioTranscription: null,
+    turnDetection: {
+      type: "semantic_vad" as const,
+      eagerness: "medium" as const,
+      create_response: true,
+      interrupt_response: true,
+    },
+    // Не включаем tracing: для него не заявлена EU regional processing.
+    tracing: null,
+    ...(cfg.OPENAI_BASE_URL === undefined
+      ? {}
+      : { baseURL: cfg.OPENAI_BASE_URL }),
+  };
+
+  return {
+    llm: new openai.realtime.RealtimeModel(modelOptions),
+    vad: null,
   };
 }
 

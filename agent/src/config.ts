@@ -41,6 +41,12 @@ export const configSchema = z
       .enum(["none", "minimal", "low", "medium", "high"])
       .default("none"),
 
+    REALTIME_MODEL: z.string().trim().min(1).default("gpt-realtime-2.1"),
+    REALTIME_VOICE: z.string().trim().min(1).default("marin"),
+    REALTIME_REASONING_EFFORT: z
+      .enum(["minimal", "low", "medium", "high", "xhigh"])
+      .default("minimal"),
+
     STT_MODEL: z.literal("gpt-transcribe").default("gpt-transcribe"),
     TTS_MODEL: z.literal("tts-1").default("tts-1"),
     TTS_VOICE: ttsVoiceSchema.default("alloy"),
