@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     projects: [
@@ -40,6 +40,10 @@ export default defineConfig({
           name: "portal",
           setupFiles: ["portal/tests/setup.ts"],
           include: ["portal/tests/**/*.test.ts"],
+          // `portal/tests/db/**` принадлежит проекту `database`: там нужна настоящая
+          // база, которую поднимает его global-setup. Без этого исключения те же файлы
+          // запускались бы и здесь — без `TEST_DATABASE_URL` и с гарантированным падением.
+          exclude: [...configDefaults.exclude, "portal/tests/db/**"],
           // bcrypt cost 12 намеренно медленный: пары сверок хватает, чтобы выйти за секунду.
           testTimeout: 20_000,
         },

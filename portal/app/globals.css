@@ -1186,6 +1186,193 @@ textarea {
   }
 }
 
+/* --- Канбан самовывоза --- */
+
+/*
+ * Шесть колонок по числу статусов в базе. На узком экране доска прокручивается вбок
+ * с примагничиванием: складывать колонки в одну означало бы потерять сам смысл канбана.
+ */
+.board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15rem, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 8rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  scroll-snap-align: start;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+/* Цель перетаскивания подсвечивается: без этого непонятно, куда упадёт карточка. */
+.board-column.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.board-column-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.board-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-empty {
+  margin: 0;
+  padding: 0.6rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+}
+
+.order-card:active {
+  cursor: grabbing;
+}
+
+/* Полчаса до выдачи — пора заниматься заказом. */
+.order-card.is-soon {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface));
+}
+
+/* Время выдачи прошло — заказ уже должен быть готов. */
+.order-card.is-late {
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.order-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.order-number {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.order-guest {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.order-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.order-line-name {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Пометка гостя — отдельной строкой: её нельзя пропустить глазами на кухне. */
+.order-line-note {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--warn);
+}
+
+.order-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.order-total {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-move {
+  margin-left: auto;
+  display: flex;
+  gap: 0.3rem;
+}
+
+.order-move button {
+  padding: 0.25rem 0.6rem;
+}
+
+/* Строка корзины в форме заказа. */
+.order-line-edit {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.order-line-edit > .field {
+  flex: 1;
+}
+
+.order-line-edit > .field-narrow {
+  flex: 0 0 5.5rem;
+}
+
+@media (max-width: 720px) {
+  .order-line-edit {
+    flex-wrap: wrap;
+  }
+
+  .order-line-edit > .field-narrow {
+    flex: 0 0 5rem;
+  }
+}
+
 /* --- Узкий экран: таблица превращается в карточки --- */
 
 @media (max-width: 720px) {

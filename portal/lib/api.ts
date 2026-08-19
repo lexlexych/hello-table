@@ -112,13 +112,16 @@ export function dbFailure(error: unknown): NextResponse {
 }
 
 /**
- * Отказ доменной функции Postgres. `table_already_booked` — конфликт состояния (409):
- * запрос был корректен, просто столик успели занять. Остальное клиент прислал сам,
- * поэтому 400. Всё, что не доменное, уходит в `dbFailure` и может стать 500.
+ * Отказ доменной функции Postgres. `table_already_booked` и `slot_full` — конфликты
+ * состояния (409): запрос был корректен, просто столик или слот выдачи успели занять.
+ * Остальное клиент прислал сам, поэтому 400. Всё, что не доменное, уходит в
+ * `dbFailure` и может стать 500.
  */
+const CONFLICT_CODES = new Set(["table_already_booked", "slot_full"]);
+
 export function appFailure(error: unknown): NextResponse {
   const code = toAppErrorCode(error);
-  if (code === "table_already_booked") {
+  if (code && CONFLICT_CODES.has(code)) {
     return NextResponse.json({ error: code }, { status: 409 });
   }
   if (code) {

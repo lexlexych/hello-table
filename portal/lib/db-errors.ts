@@ -38,6 +38,13 @@ export const APP_ERROR_CODES = [
   "slot_in_past",
   "table_not_available",
   "table_already_booked",
+  "slot_full",
+  "item_unavailable",
+  "empty_order",
+  "invalid_quantity",
+  "no_pickup_slot",
+  "pickup_too_early",
+  "order_number_exhausted",
 ] as const;
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
 
@@ -46,6 +53,16 @@ const BY_APP_SQLSTATE: Record<string, AppErrorCode> = {
   "45006": "slot_in_past",
   "45015": "table_not_available",
   "45016": "table_already_booked",
+  // Самовывоз. `slot_full` объединяет три причины отказа `pickup_slot_is_free`:
+  // слот занят целиком, ресторан в эти 15 минут закрыт, время не кратно 15 минутам.
+  // Разделить их база не даёт, поэтому текст на клиенте называет все три.
+  "45002": "slot_full",
+  "45003": "item_unavailable",
+  "45007": "empty_order",
+  "45008": "invalid_quantity",
+  "45009": "no_pickup_slot",
+  "45010": "pickup_too_early",
+  "45011": "order_number_exhausted",
 };
 
 export function toAppErrorCode(error: unknown): AppErrorCode | undefined {

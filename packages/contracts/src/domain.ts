@@ -15,6 +15,21 @@ export const VOICE_MODES = ["pipeline", "realtime"] as const;
 export const voiceModeSchema = z.enum(VOICE_MODES);
 export type VoiceMode = z.infer<typeof voiceModeSchema>;
 
+/**
+ * Совпадает с CHECK pickup_orders.status. Порядок значим: в этом же порядке идут
+ * колонки канбан-доски портала и по нему считается «следующий» и «предыдущий» статус.
+ */
+export const PICKUP_ORDER_STATUSES = [
+  "new",
+  "confirmed",
+  "preparing",
+  "ready",
+  "picked_up",
+  "cancelled",
+] as const;
+export const pickupOrderStatusSchema = z.enum(PICKUP_ORDER_STATUSES);
+export type PickupOrderStatus = z.infer<typeof pickupOrderStatusSchema>;
+
 /** Совпадает с CHECK на callback_requests.category. */
 export const CALLBACK_CATEGORIES = [
   "banquet",
