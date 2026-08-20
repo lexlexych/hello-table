@@ -314,6 +314,10 @@ textarea {
   max-width: 1280px;
 }
 
+.shell-main:has(.board) {
+  max-width: 1600px;
+}
+
 /* Узкий экран: боковое меню превращается в горизонтальную полосу над содержимым. */
 @media (max-width: 720px) {
   .shell-body {

@@ -30,6 +30,7 @@ const MAX_TYPE_VERSION: Record<string, number> = {
   "n8n-nodes-base.formTrigger": 2.6,
   "n8n-nodes-base.httpRequest": 4.4,
   "n8n-nodes-base.if": 2.3,
+  "n8n-nodes-base.manualTrigger": 1,
   "n8n-nodes-base.postgres": 2.6,
   "n8n-nodes-base.set": 3.4,
   "n8n-nodes-base.stickyNote": 1,
@@ -49,6 +50,7 @@ const MAX_TYPE_VERSION: Record<string, number> = {
 const TRIGGERS = new Set([
   "n8n-nodes-base.executeWorkflowTrigger",
   "n8n-nodes-base.formTrigger",
+  "n8n-nodes-base.manualTrigger",
   "n8n-nodes-base.telegramTrigger",
 ]);
 
@@ -401,4 +403,104 @@ describe("оркестратор передаёт входы в выбранны
       );
     },
   );
+});
+
+describe("ручная загрузка политики ресторана в Qdrant", () => {
+  const workflow = loadByWorkflowName(
+    "Basilik Telegram - Ingest: Restaurant info to Qdrant",
+  );
+
+  it("использует ручной триггер и готовые чанки без повторного splitter", () => {
+    expect(
+      workflow.nodes.filter(
+        (node) => node.type === "n8n-nodes-base.manualTrigger",
+      ),
+    ).toHaveLength(1);
+    expect(
+      workflow.nodes.some((node) => node.type === "n8n-nodes-base.formTrigger"),
+    ).toBe(false);
+    expect(
+      workflow.nodes.some((node) => node.type.includes("textSplitter")),
+    ).toBe(false);
+  });
+
+  it("готовит один непустой item на каждый из 11 разделов PDF", () => {
+    const code = workflow.nodes.find(
+      (node) => node.name === "Prepare Policy Chunks",
+    );
+    expect(code?.type).toBe("n8n-nodes-base.code");
+
+    const jsCode = code?.parameters?.jsCode;
+    expect(jsCode).toBeTypeOf("string");
+    const execute = new Function(jsCode as string) as () => unknown;
+    const result = execute();
+    expect(Array.isArray(result)).toBe(true);
+
+    const chunks = result as Array<{
+      json: {
+        text: string;
+        section: string;
+        section_order: number;
+        source: string;
+        document_version: string;
+        language: string;
+      };
+    }>;
+    expect(chunks).toHaveLength(11);
+    expect(chunks.map((chunk) => chunk.json.section)).toEqual([
+      "Бронирование",
+      "Отмена и перенос брони",
+      "Напоминания и подтверждение визита",
+      "Банкеты и большие группы",
+      "Детское меню",
+      "Бизнес-ланч",
+      "Оплата",
+      "Свой алкоголь (corkage)",
+      "Дресс-код и атмосфера",
+      "Питомцы",
+      "Часы работы, адрес и парковка",
+    ]);
+    expect(chunks.map((chunk) => chunk.json.section_order)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+    ]);
+    expect(new Set(chunks.map((chunk) => chunk.json.section)).size).toBe(11);
+
+    for (const chunk of chunks) {
+      expect(chunk.json.text.startsWith(`${chunk.json.section}\n\n`)).toBe(
+        true,
+      );
+      expect(chunk.json.text.length).toBeGreaterThan(chunk.json.section.length);
+      expect(chunk.json.source).toBe("Basilik_Policy.pdf");
+      expect(chunk.json.document_version).toBe("2026-08");
+      expect(chunk.json.language).toBe("ru");
+    }
+  });
+
+  it("передаёт текст и метаданные каждого item в Default Data Loader", () => {
+    const loader = workflow.nodes.find(
+      (node) => node.name === "Default Data Loader",
+    );
+    expect(loader?.parameters).toMatchObject({
+      jsonMode: "expressionData",
+      jsonData: "={{ $json.text }}",
+    });
+
+    const options = loader?.parameters?.options as
+      | {
+          metadata?: {
+            metadataValues?: Array<{ name?: string; value?: string }>;
+          };
+        }
+      | undefined;
+    expect(options?.metadata?.metadataValues).toEqual([
+      { name: "section", value: "={{ $json.section }}" },
+      { name: "section_order", value: "={{ $json.section_order }}" },
+      { name: "source", value: "={{ $json.source }}" },
+      {
+        name: "document_version",
+        value: "={{ $json.document_version }}",
+      },
+      { name: "language", value: "={{ $json.language }}" },
+    ]);
+  });
 });

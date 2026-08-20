@@ -155,7 +155,7 @@ Portal API по HTTPS, а уже портал выполняет разрешё�
 | `Basilik Telegram - Sub_ Check availability.json` | Свободные столики через Portal API → `find_available_tables` |
 | `Basilik Telegram - Sub_ Create reservation.json` | Бронь через Portal API → `create_reservation_for_table` |
 | `Basilik Telegram - Sub_ Operator handoff.json` | Вопрос в очередь `/messages` через Portal API → `create_telegram_callback_request` |
-| `Basilik Telegram - Ingest_ Restaurant info to Qdrant.json` | Загрузка PDF со справкой в коллекцию Qdrant |
+| `Basilik Telegram - Ingest_ Restaurant info to Qdrant.json` | Ручная загрузка 11 готовых разделов `Basilik_Policy.pdf` в коллекцию Qdrant |
 
 ## Credentials
 
@@ -265,8 +265,15 @@ pnpm exec vitest run --project n8n
 
 1. Создайте в Qdrant коллекцию `basilik_info` с размерностью вектора **1536**
    (`text-embedding-3-small`).
-2. Откройте `ingest-restaurant-info`, нажмите **Test workflow** и перейдите по ссылке формы.
-3. Загрузите PDF со справкой — например `demo/Basilik_Policy.pdf` из репозитория.
+2. Импортируйте `Basilik Telegram - Ingest_ Restaurant info to Qdrant.json` и проверьте
+   credential в нодах **Embeddings OpenAI** и **Qdrant Vector Store**.
+3. Откройте workflow и нажмите **Test workflow**. Ручной триггер передаст в Qdrant 11 items:
+   по одному на каждый раздел `demo/Basilik_Policy.pdf`.
+
+Тексты разделов уже подготовлены в Code-ноде **Prepare Policy Chunks**. Каждый item содержит
+полный заголовок и текст раздела, а также метаданные `section`, `section_order`, `source`,
+`document_version` и `language`. Default Data Loader читает готовый `$json.text`; отдельного
+text splitter в цепочке нет.
 
 Повторный запуск **добавляет** фрагменты, а не заменяет их. Перед перезаливкой того же
 документа очистите коллекцию, иначе бот будет находить дубли.
