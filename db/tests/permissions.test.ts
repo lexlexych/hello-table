@@ -254,11 +254,11 @@ describe("владелец схемы", () => {
       WHERE n.nspname = 'public' AND p.proname IN (
         'find_available_slots','create_reservation_atomic','cancel_reservation_by_phone',
         'find_menu_items','find_pickup_slots','create_pickup_order_atomic',
-        'create_callback_request','purge_expired_personal_data',
+        'create_callback_request','delete_callback_request','purge_expired_personal_data',
         'book_table_for_day','cancel_table_booking',
         'find_available_tables','create_reservation_for_table')`;
 
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(13);
     for (const row of rows) {
       expect(row.prosecdef).toBe(true);
       expect(row.owner).toBe("app_owner");

@@ -29,6 +29,9 @@ GRANT EXECUTE ON FUNCTION find_pickup_slots_local(uuid,jsonb,date,time,int),crea
 -- До создания голосовой сессии агент читает только выбранный для ресторана движок.
 GRANT EXECUTE ON FUNCTION get_agent_runtime_settings(uuid) TO agent_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;
+GRANT EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) TO agent_app;
+-- Ручное удаление одной карточки сообщения: общего DELETE на callback_requests нет.
+GRANT EXECUTE ON FUNCTION delete_callback_request(uuid,uuid) TO portal_app;
 -- Дневная бронь столика из портала (PROJECT.md §7.3): право только у portal_app.
 -- n8n_app получит его вместе с workflow бронирования — заглушек не заводим.
 GRANT EXECUTE ON FUNCTION book_table_for_day(uuid,uuid,date,time,int,text,text),cancel_table_booking(uuid,uuid,date) TO portal_app;

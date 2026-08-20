@@ -6,6 +6,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM restaurants WHERE id = p_restaurant AND is_active) THEN
     RAISE EXCEPTION 'restaurant_not_found' USING ERRCODE = '45000';
   END IF;
+  IF p_phone IS NULL OR btrim(p_phone) = '' THEN
+    RAISE EXCEPTION 'phone_required' USING ERRCODE = '45012';
+  END IF;
   IF p_category IS NULL OR p_category NOT IN ('banquet','complaint','special','other') THEN
     RAISE EXCEPTION 'invalid_category' USING ERRCODE = '45013';
   END IF;
@@ -13,8 +16,12 @@ BEGIN
     RAISE EXCEPTION 'summary_too_long' USING ERRCODE = '45014';
   END IF;
 
-  INSERT INTO callback_requests (restaurant_id, caller_phone, language, summary, category)
-  VALUES (p_restaurant, p_phone, p_language, btrim(p_summary), p_category)
+  INSERT INTO callback_requests (
+    restaurant_id, source, caller_phone, language, summary, category
+  )
+  VALUES (
+    p_restaurant, 'voice', btrim(p_phone), p_language, btrim(p_summary), p_category
+  )
   RETURNING id INTO v_id;
   RETURN v_id;
 END $$;

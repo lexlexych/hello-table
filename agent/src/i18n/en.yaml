@@ -27,5 +27,6 @@ tool_errors:
   no_pickup_slot: "Unfortunately no pickup is possible today any more. Would you like to order for another day?"
   pickup_too_early: "The kitchen unfortunately cannot manage it that quickly. I am happy to name the earliest possible pickup time."
   order_number_exhausted: "Sorry, the order could not be created just now. Please contact the restaurant directly."
+  phone_required: "Please tell me a phone number."
   invalid_category: "Sorry, I could not categorise your request. What is it about, in short?"
   summary_too_long: "Sorry, let me summarise your request more briefly."

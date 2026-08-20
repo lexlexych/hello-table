@@ -92,9 +92,9 @@ describe("полный цикл миграций на изолированной
       WHERE n.nspname='public' AND p.proname IN (
         'find_available_slots','create_reservation_atomic','cancel_reservation_by_phone',
         'find_menu_items','find_pickup_slots','create_pickup_order_atomic',
-        'create_callback_request','purge_expired_personal_data',
+        'create_callback_request','delete_callback_request','purge_expired_personal_data',
         'book_table_for_day','cancel_table_booking')`;
-    expect(functions).toHaveLength(10);
+    expect(functions).toHaveLength(11);
 
     const roles = await sql<{ rolname: string }[]>`
       SELECT rolname FROM pg_roles WHERE rolname IN ('n8n_app','portal_app')`;

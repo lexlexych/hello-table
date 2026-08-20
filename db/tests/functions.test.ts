@@ -18,6 +18,7 @@ describe("database functions", () => {
       "find_pickup_slots",
       "create_pickup_order_atomic",
       "create_callback_request",
+      "delete_callback_request",
       "purge_expired_personal_data",
       "book_table_for_day",
       "cancel_table_booking",

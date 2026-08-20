@@ -27,5 +27,6 @@ tool_errors:
   no_pickup_slot: "Heute ist leider keine Abholung mehr möglich. Möchten Sie für einen anderen Tag bestellen?"
   pickup_too_early: "So schnell schafft die Küche das leider nicht. Ich nenne Ihnen gern die frühestmögliche Abholzeit."
   order_number_exhausted: "Entschuldigung, die Bestellung konnte gerade nicht angelegt werden. Bitte wenden Sie sich direkt an das Restaurant."
+  phone_required: "Bitte nennen Sie mir eine Telefonnummer."
   invalid_category: "Entschuldigung, ich konnte Ihr Anliegen nicht einordnen. Worum geht es kurz gesagt?"
   summary_too_long: "Entschuldigung, ich fasse Ihr Anliegen noch einmal kürzer zusammen."

@@ -32,17 +32,18 @@ tool call, а агент использует его для RPC, формати�
 `restaurant_not_found`, `no_table_available`, `table_not_available`, `table_already_booked`,
 `closed_at_requested_time`, `party_too_large`, `slot_in_past`, `slot_full`, `item_unavailable`,
 `empty_order`, `invalid_quantity`, `no_pickup_slot`, `pickup_too_early`,
-`order_number_exhausted`, `invalid_category`, `summary_too_long`, `invalid_request`.
+`order_number_exhausted`, `phone_required`, `invalid_category`, `summary_too_long`,
+`invalid_request`.
 
 Транспортные коды формирует агент: `timeout`, `unreachable` (соединение с базой или иной
 ошибочный SQLSTATE), `invalid_response` (результат RPC не по контракту). Отдельного поведения на
 каждый из них нет: агент извиняется и предлагает оставить сообщение менеджеру.
 
-**Статус.** `check_availability`, `create_reservation`, `search_menu`, `check_pickup_slots` и
-`create_pickup_order` зарегистрированы в голосовом агенте и напрямую вызывают RPC под ролью
-`agent_app`. Ранее экспортированные workflow n8n для брони остаются для чата и формуляров; у
-самовывоза workflow нет и не планируется. `request_callback` имеет контракт, но временно
-не зарегистрирован и не имеет workflow. Остальные контракты пока не определены.
+**Статус.** `check_availability`, `create_reservation`, `search_menu`, `check_pickup_slots`,
+`create_pickup_order` и `request_callback` зарегистрированы в голосовом агенте и напрямую
+вызывают RPC под ролью `agent_app`. Ранее экспортированные workflow n8n для брони остаются
+для чата и формуляров; у самовывоза и обратного звонка workflow пока нет. Остальные контракты
+пока не определены.
 
 ---
 
@@ -363,15 +364,16 @@ p_items, p_date, p_time, p_guest_name, p_guest_phone, p_language, p_source)`; т
 
 ---
 
-## `request_callback` → пока не зарегистрирован
+## `request_callback` → `create_callback_request`
 
 **Назначение:** сообщение менеджеру ресторана, когда вопрос не решается в разговоре:
 банкет от 15 человек, жалоба, особое пожелание, повторно неудавшийся инструмент. Менеджер
 перезванивает сам.
 
-Целевой путь должен вызвать `create_callback_request(...)` и отправить уведомление в
-Telegram. В текущем агенте инструмента нет: до отдельной реализации он не обещает гостю
-создать сообщение или оформить обратный звонок. n8n-вход `callback.create` также не создан.
+Голосовой агент вызывает `create_callback_request(...)` напрямую под ролью `agent_app`.
+Функция сохраняет запись с `source=voice` в `caller_phone`; источник не принимает LLM.
+Будущий Telegram-вход использует отдельный `telegram_user_id`. Внешнее Telegram-уведомление
+и Telegram-бот в этот путь не входят.
 
 **Запрос:**
 
@@ -381,17 +383,22 @@ Telegram. В текущем агенте инструмента нет: до о�
   "session_id": "string",
   "category": "banquet",         // banquet | complaint | special | other
   "summary": "string",           // не длиннее 400 символов
-  "phone": "+4930...",           // null, если гость не назвал
+  "phone": "+4930...",           // подтверждённый гостем номер, обязателен
   "language": "de"
 }
 ```
 
 **Ответ (успех):** `{ "ok": true, "callback_id": "uuid" }`
 
-**Ответ (ошибка):** `{ "ok": false, "error": "invalid_category" | "summary_too_long" | "restaurant_not_found" | "invalid_request" }`
+**Ответ (ошибка):** `{ "ok": false, "error": "phone_required" | "invalid_category" | "summary_too_long" | "restaurant_not_found" | "invalid_request" }`
 
-**Текущее поведение:** инструмент не зарегистрирован. Агент честно говорит, что записать
-сообщение сейчас не может, и не обещает обратный звонок.
+**Порядок разговора:** если разрешённые источники не содержат ответа, агент ничего не
+додумывает, предлагает передать вопрос оператору и ждёт согласия. Затем спрашивает номер,
+повторяет его и вызывает инструмент только после подтверждения. Успех сообщения подтверждает
+только `{ "ok": true }`; при отказе не обещает обратный звонок.
+
+**Таймаут на стороне агента:** `AGENT_DATABASE_TIMEOUT_MS`. В результат инструмента не
+попадают свободный SQL-текст и персональные данные; телефон и резюме не логируются.
 
 ---
 

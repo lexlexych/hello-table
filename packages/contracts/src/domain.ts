@@ -40,6 +40,28 @@ export const CALLBACK_CATEGORIES = [
 export const callbackCategorySchema = z.enum(CALLBACK_CATEGORIES);
 export type CallbackCategory = z.infer<typeof callbackCategorySchema>;
 
+/** Совпадает с CHECK callback_requests.status; порядок используется доской сообщений. */
+export const CALLBACK_REQUEST_STATUSES = [
+  "new",
+  "in_progress",
+  "done",
+] as const;
+export const callbackRequestStatusSchema = z.enum(CALLBACK_REQUEST_STATUSES);
+export type CallbackRequestStatus = z.infer<
+  typeof callbackRequestStatusSchema
+>;
+
+/** Канал создания и вид сохранённого контакта в callback_requests. */
+export const CALLBACK_REQUEST_SOURCES = ["voice", "telegram"] as const;
+export const callbackRequestSourceSchema = z.enum(CALLBACK_REQUEST_SOURCES);
+export type CallbackRequestSource = z.infer<
+  typeof callbackRequestSourceSchema
+>;
+
+export const CALLBACK_CONTACT_KINDS = ["phone", "telegram_id"] as const;
+export const callbackContactKindSchema = z.enum(CALLBACK_CONTACT_KINDS);
+export type CallbackContactKind = z.infer<typeof callbackContactKindSchema>;
+
 /**
  * Доменные ошибки инструментов. Имена совпадают с прикладными SQLSTATE из
  * db/README.md; прямой клиент агента переводит SQLSTATE в этот enum. `invalid_request`
@@ -63,6 +85,7 @@ export const DOMAIN_TOOL_ERRORS = [
   "no_pickup_slot",
   "pickup_too_early",
   "order_number_exhausted",
+  "phone_required",
   "invalid_category",
   "summary_too_long",
   "invalid_request",

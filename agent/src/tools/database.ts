@@ -20,6 +20,9 @@ const SQLSTATE_ERRORS = {
   "45009": "no_pickup_slot",
   "45010": "pickup_too_early",
   "45011": "order_number_exhausted",
+  "45012": "phone_required",
+  "45013": "invalid_category",
+  "45014": "summary_too_long",
   "45015": "table_not_available",
   "45016": "table_already_booked",
 } as const satisfies Record<string, ToolError>;

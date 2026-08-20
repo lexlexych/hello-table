@@ -265,7 +265,9 @@ textarea {
 }
 
 .shell-nav a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 0.7rem;
   border-radius: var(--radius-sm);
   color: var(--text);
@@ -273,6 +275,27 @@ textarea {
   transition:
     background-color 150ms ease,
     color 150ms ease;
+}
+
+.nav-label {
+  min-width: 0;
+}
+
+.nav-count {
+  margin-left: auto;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.shell-nav a[aria-current="page"] .nav-count {
+  background: var(--accent-text);
+  color: var(--accent);
 }
 
 .shell-nav a:hover {
@@ -1187,6 +1210,116 @@ textarea {
 }
 
 /* --- Канбан самовывоза --- */
+
+/* --- Очередь сообщений --- */
+
+.message-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.message-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 8rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.message-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.message-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.message-card-head time {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.message-card-head-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+button.message-delete {
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+button.message-delete:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.message-delete svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.message-summary {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.message-meta {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.message-meta div {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.5rem;
+}
+
+.message-meta dt {
+  color: var(--muted);
+}
+
+.message-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 960px) {
+  .message-board {
+    grid-template-columns: 1fr;
+  }
+}
 
 /*
  * Шесть колонок по числу статусов в базе. На узком экране доска прокручивается вбок

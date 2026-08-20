@@ -236,7 +236,8 @@ export const requestCallbackRequestSchema = toolEnvelopeSchema.extend({
   category: callbackCategorySchema,
   /** Лимит 400 символов держит и CHECK на callback_requests.summary (§6.2). */
   summary: z.string().trim().min(1).max(400),
-  phone: z.string().trim().min(1).nullable(),
+  /** Подтверждённый гостем телефон; голосовой запрос без контакта не создаётся. */
+  phone: z.string().trim().min(3).max(40),
   language: languageSchema,
 });
 export type RequestCallbackRequest = z.infer<

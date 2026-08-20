@@ -27,14 +27,16 @@ leave the developer's working passwords alone.
 
 `roles.sql` is reapplied on every `pnpm db:migrate`, so grant changes need no migration.
 `agent_app` is the voice-agent runtime role: it cannot access tables and can execute only
-`find_available_tables`, `create_reservation_for_table`, `get_current_menu`, and
-`get_agent_runtime_settings`. The last RPC returns only the per-restaurant voice mode needed
-before a session is constructed. `n8n_app` remains separate for
+the RPCs of its registered tools: table availability and reservation, current menu, pickup
+slots and creation, callback creation, plus `get_agent_runtime_settings`. The last RPC returns
+only the per-restaurant voice mode needed before a session is constructed. `n8n_app` remains separate for
 workflow launched from chats and forms; credentials are never shared between the two.
 `portal_app` holds `SELECT/INSERT/UPDATE` on all tables plus `DELETE` on exactly three
 reference tables — `restaurant_tables`, `menu_categories`, `menu_items` — which the portal
 administrator edits. Operational tables hold personal data and are pruned only by
-`purge_expired_personal_data()`; the grant is deliberately kept out of
+`purge_expired_personal_data()`. The only manual exception is
+`delete_callback_request(restaurant, callback)`: `portal_app` may execute that function but
+still has no table-level `DELETE`. The grant is deliberately kept out of
 `ALTER DEFAULT PRIVILEGES` so a future table cannot inherit it silently.
 `website_app` is the public-site server role: it cannot access tables and can execute only
 `find_available_tables` and `create_reservation_for_table`.
@@ -89,6 +91,20 @@ where both forms are identical.
 | 45014 | summary_too_long |
 | 45015 | table_not_available |
 | 45016 | table_already_booked |
+
+## Callback messages
+
+`callback_requests` is the shared operator queue. Voice requests use `source='voice'` and
+`caller_phone`; the future Telegram input will use `source='telegram'` and
+`telegram_user_id`. The CHECK constraints prohibit mixing both contacts in one row.
+`create_callback_request` is the voice RPC and fixes its source itself, so the model cannot
+choose or spoof a channel. Existing rows without a contact remain readable after migration,
+but every new voice request requires a non-empty phone.
+
+`delete_callback_request` removes at most one row matching both the configured restaurant and
+the message UUID. A missing row and a UUID from another restaurant both return `false`.
+Existing `call_logs.callback_id ON DELETE SET NULL` keeps non-personal call metrics while
+removing the message and its contact immediately.
 
 ## Time zones
 

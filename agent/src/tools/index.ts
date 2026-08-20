@@ -2,6 +2,7 @@ import type { Language, VoiceMode } from "@hello-table/contracts";
 import type { Config } from "../config.ts";
 import type { Phrases, SessionLanguageState } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
+import { requestCallbackTool } from "./callback.ts";
 import { searchMenuTool } from "./menu.ts";
 import { checkPickupSlotsTool, createPickupOrderTool } from "./pickup.ts";
 import {
@@ -11,8 +12,8 @@ import {
 import type { MenuCache, ToolDeps } from "./shared.ts";
 
 /**
- * Набор инструментов агента. Бронирование, меню и самовывоз вызывают Postgres RPC
- * напрямую; контракты — docs/tool-contracts.md.
+ * Набор инструментов агента. Бронирование, меню, самовывоз и сообщения оператору
+ * вызывают Postgres RPC напрямую; контракты — docs/tool-contracts.md.
  */
 export function buildTools(
   config: Config,
@@ -41,5 +42,6 @@ export function buildTools(
     searchMenuTool(deps),
     checkPickupSlotsTool(deps),
     createPickupOrderTool(deps),
+    requestCallbackTool(deps),
   ];
 }
