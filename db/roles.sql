@@ -15,14 +15,14 @@ REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM agent_app;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM website_app;
 GRANT EXECUTE ON FUNCTION find_available_slots(uuid,date,int,time,int),create_reservation_atomic(uuid,timestamptz,int,text,text,char,text),cancel_reservation_by_phone(uuid,text,date),find_menu_items(uuid,text,char,bool,bool,text[],int),find_pickup_slots(uuid,timestamptz,int,int),create_pickup_order_atomic(uuid,jsonb,timestamptz,text,text,char,text),create_callback_request(uuid,text,char,text,text) TO n8n_app,portal_app;
--- Голосовой агент вызывает эти две RPC напрямую под отдельной ролью; n8n сохраняет доступ
--- для тех же операций из будущего чата и формуляра. Обе роли не читают таблицы.
-GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO agent_app,n8n_app;
+-- Голосовой агент вызывает эти две RPC напрямую. Portal API вызывает их от имени
+-- облачного n8n, чтобы строка подключения к базе не покидала сервер приложения.
+GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO agent_app,n8n_app,portal_app;
 -- Публичный сайт вызывает только поиск и атомарную бронь из серверных route handlers.
 -- Роль не читает таблицы и не может выполнять другие функции.
 GRANT EXECUTE ON FUNCTION find_available_tables(uuid,date,time,int),create_reservation_for_table(uuid,uuid,date,time,int,text,text,char,text) TO website_app;
--- Актуальное меню голосовой агент читает напрямую; n8n не является частью звонка.
-GRANT EXECUTE ON FUNCTION get_current_menu(uuid,char) TO agent_app;
+-- Актуальное меню голосовой агент читает напрямую, а облачный n8n — через Portal API.
+GRANT EXECUTE ON FUNCTION get_current_menu(uuid,char) TO agent_app,portal_app;
 -- Самовывоз: агент вызывает только местные обёртки. Часовой пояс ресторана известен
 -- одной базе, поэтому вход и выход у них в местных дате и времени (db/README.md).
 GRANT EXECUTE ON FUNCTION find_pickup_slots_local(uuid,jsonb,date,time,int),create_pickup_order_local(uuid,jsonb,date,time,text,text,char,text) TO agent_app;

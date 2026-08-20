@@ -337,6 +337,12 @@ n8n.<домен>       → n8n:5678       (доступ только с IP вл�
 с Caddy в итерации 12 и останется доступен только с IP владельца; workflow будут
 запускаться из чата либо формуляра.
 
+Telegram-бот работает во втором, облачном экземпляре n8n и в эту Docker-топологию не
+входит. Он не получает Postgres credential и не открывает TCP-туннель к базе: инструменты
+меню и бронирования вызывают `https://app.<домен>/api/integrations/n8n/*` с отдельным
+Bearer-ключом, а Portal API уже выполняет разрешённую RPC в локальной сети сервера. Общий
+`portal_api_base_url` три сабворкфлоу читают из строки Data Table `key_value`.
+
 ### 3.2 Путь данных звонка
 
 ```
@@ -391,7 +397,9 @@ Postgres-функции, перевод SQLSTATE в enum-код и zod-вали�
 
 **В n8n живут workflow из чата и формуляров и внешние интеграции:** Telegram, будущие
 касса, почта и Google-календарь. n8n — это клей для не-голосовых входов и интеграций,
-а не промежуточный слой каждого звонка и не источник истины.
+а не промежуточный слой каждого звонка и не источник истины. Облачный n8n не подключается
+к Postgres: его HTTP Request вызывает Portal API, тот валидирует общий контракт и только
+затем делегирует в ту же Postgres-функцию, где остаётся бизнес-логика.
 
 Схема одного инструмента:
 
@@ -399,6 +407,12 @@ Postgres-функции, перевод SQLSTATE в enum-код и zod-вали�
 agent.tool("create_reservation")
    → TypeScript-обёртка (параметризованный запрос под ролью agent_app)
         → create_reservation_for_table() в Postgres
+        → перевод SQLSTATE и zod-валидация результата
+   ← { ok: true, reservation_id, table_label, starts_at, ends_at }
+
+Telegram tool("create_reservation")
+   → HTTPS Portal API (Bearer credential, zod-вход без restaurant_id)
+        → create_reservation_for_table() под ролью portal_app
         → перевод SQLSTATE и zod-валидация результата
    ← { ok: true, reservation_id, table_label, starts_at, ends_at }
 ```
@@ -417,8 +431,13 @@ agent.tool("create_reservation")
 - `agent_app` не имеет прав на таблицы и выполняет только явно выданные RPC.
 - `website_app` не имеет прав на таблицы и выполняет только две RPC публичной брони;
   строка подключения доступна только серверным route handlers Next.js.
-- n8n подключается к Postgres под ролью `n8n_app`, у которой есть право
-  `EXECUTE` только на нужные его workflow функции и **нет прав на таблицы напрямую**.
+- облачный n8n знает только HTTPS URL портала, сохранённый как `portal_api_base_url` в Data
+  Table `key_value`, и `PORTAL_N8N_API_KEY`, сохранённый в HTTP Header Auth credential;
+  ключ и credential ID не экспортируются в workflow JSON;
+- Portal API не принимает `restaurant_id`: ресторан определяется серверным
+  `PORTAL_RESTAURANT_SLUG`; `portal_app` получает точечный `EXECUTE` на три RPC API;
+- роль `n8n_app` остаётся только для self-hosted workflow в доверенной Docker-сети и не
+  передаётся облачному Telegram-инстансу; у неё по-прежнему нет прав на таблицы.
 - Ответ RPC валидируется до передачи модели; значения запросов и ответов с PII не логируются.
 
 ---
@@ -733,15 +752,16 @@ cancel_table_booking(restaurant, table, date) → int
 пишутся в ту же таблицу `reservations`, иначе агент не увидел бы занятость и предложил
 бы этот столик гостю по телефону. `max_party_size` там намеренно не проверяется — это
 лимит телефонных броней, а столик выбирает человек. `EXECUTE` выдан только `portal_app`;
-`n8n_app` получит право вместе с workflow бронирования.
+`n8n_app` получит право вместе с self-hosted workflow бронирования.
 
 Все функции — `SECURITY DEFINER`, владелец `app_owner`, права `EXECUTE` выдаются
 по вызывающему приложению. `find_available_tables` и `create_reservation_for_table`
-разрешены `agent_app`, `n8n_app` и `website_app`: первая роль обслуживает голосовой звонок
-напрямую, вторая сохраняет существующие workflow для будущих чатов и формуляров, третья —
-публичный сайт. `get_current_menu`, `find_pickup_slots_local` и `create_pickup_order_local`
-разрешены только `agent_app`; `create_callback_request` — `agent_app` и `n8n_app` для
-будущих каналов. `book_table_for_day`,
+разрешены `agent_app`, `n8n_app`, `portal_app` и `website_app`: первая роль обслуживает
+голосовой звонок напрямую, вторая сохраняет self-hosted workflow для будущих чатов и
+формуляров, третья обслуживает HTTP API облачного n8n, четвёртая — публичный сайт.
+`get_current_menu` разрешена `agent_app` и `portal_app`; `find_pickup_slots_local` и
+`create_pickup_order_local` — только `agent_app`; `create_callback_request` — `agent_app`
+и `n8n_app` для будущих каналов. `book_table_for_day`,
 `cancel_table_booking` и `delete_callback_request` разрешены только `portal_app`.
 
 ⚠️ Уточнения, зафиксированные спекой 001:
@@ -768,6 +788,7 @@ website_app — EXECUTE только на find_available_tables и
               create_reservation_for_table, никаких прав на таблицы
 portal_app  — SELECT/INSERT/UPDATE на таблицы (портал редактирует меню и
               обрабатывает заказы), но брони создаёт тоже через функции;
+              EXECUTE трёх RPC машинного API облачного n8n;
               DELETE выдан точечно и только на справочники
               restaurant_tables, menu_categories, menu_items
 ```
@@ -803,14 +824,17 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 
 Состояние на 20.08.2026: в агенте зарегистрированы `check_availability`,
 `create_reservation`, `search_menu`, `check_pickup_slots`, `create_pickup_order` и
-`request_callback`; они
-напрямую вызывают Postgres RPC. Workflow n8n для самовывоза нет и не планируется. Ранее созданные
-workflow `reservation.check` и `reservation.create` остаются за пределами публичного сайта.
+`request_callback`; они напрямую вызывают Postgres RPC. Workflow n8n для самовывоза нет и
+не планируется. Прежние webhook-экспорты `reservation.check` и `reservation.create` удалены
+из рабочего дерева; актуальный неголосовой путь брони — Telegram-сабворкфлоу через Portal API.
 Сайт вызывает `find_available_tables` и `create_reservation_for_table` напрямую из своих
 серверных route handlers под ролью `website_app`; создание передаёт источник `website`.
-`request_callback` вызывает Postgres RPC напрямую под ролью `agent_app`. Telegram-бот и
-внешнее уведомление не входят в голосовой путь: будущий бот сохранит запись в ту же таблицу
-с источником `telegram` и контактом `telegram_id`, а внешняя интеграция останется в n8n.
+`request_callback` вызывает Postgres RPC напрямую под ролью `agent_app`. Добавленный
+Telegram-бот остаётся отдельным каналом: `search_menu`, `check_availability` и
+`create_reservation` идут из облачного n8n в Portal API по HTTPS, без доступа n8n к базе.
+Передача оператору пока отправляет только Telegram-сообщение и не сохраняет строку с
+`source=telegram` в общей очереди; это и внешнее уведомление остаются незавершённой частью
+итерации 8.
 
 Любой фактический ответ о ресторане заземлён на три источника: системный промпт, правила
 конкретного ресторана и успешные результаты инструментов текущего разговора. Общие знания
@@ -1205,11 +1229,13 @@ restaurant-voice-agent/
 ├── portal/                     # Next.js 16
 │   ├── package.json
 │   ├── Dockerfile
-│   ├── app/
+│   ├── app/                    # страницы и API, включая integrations/n8n/*
 │   ├── lib/
 │   │   ├── db.ts
 │   │   ├── auth.ts
-│   │   └── rbac.ts
+│   │   ├── rbac.ts
+│   │   ├── n8n-api.ts         # Bearer auth и ошибки машинного API
+│   │   └── n8n-tools.ts       # тонкие RPC-обёртки для облачного n8n
 │   └── scripts/hash-password.ts
 ├── website/                    # отдельный публичный Next.js 16 лендинг ресторана
 │   ├── app/                    # страница, API бронирования и выдача токена звонка
@@ -1269,10 +1295,11 @@ restaurant-voice-agent/
 Отдельная речь из tool-wrapper запрещена; пауза Pipeline закрывается межрепликовым WAV из
 §4.2. Обязательна обработка таймаута и ошибки базы с внятным голосовым ответом клиенту.
 
-**`n8n-workflows`** — когда создаётся workflow. Правила: проверка HMAC первым
-узлом, валидация входа вторым, вызов Postgres-функции, строго типизированный
-ответ, экспорт JSON в `n8n/workflows/` и коммит. Никакой бизнес-логики в
-Function-узлах.
+**`n8n-workflows`** — когда создаётся workflow. Открытый webhook проверяет HMAC, внутренний
+sub-workflow доверяет только вызывающему workflow того же инстанса. Облачный n8n вызывает
+Portal API через HTTP Header Auth credential, не получает Postgres credential и не открывает
+TCP-туннель к базе. Ответ строго типизирован, JSON экспортируется в `n8n/workflows/`.
+Никакой бизнес-логики в Function-узлах.
 
 **`voice-testing`** — когда нужно проверить агента. Правила: сценарии A–F,
 чек-лист по каждому языку, проверка филлеров, проверка что агент зачитывает
@@ -1372,8 +1399,9 @@ Function-узлах.
 [~] Итерация 5   n8n: развёртывание, HMAC-обвязка, workflows для брони и меню
                  — ЧАСТИЧНО 18.08.2026. Сделаны: self-hosted n8n 2.33.3 в
                  dev/prod Compose, локальные команды запуска, HMAC-обвязка и
-                 workflow reservation.check / reservation.create; эти workflow
-                 оставлены для чата и формуляров. НЕ сделаны:
+                 workflow reservation.check / reservation.create; их экспорты позднее
+                 удалены из рабочего дерева. Актуальные Telegram-workflow относятся к
+                 итерации 8 и вызывают Portal API. НЕ сделаны:
                  workflow часов, отмены и меню; Caddy и фактический деплой на
                  Hetzner остаются в итерации 12
 [~] Итерация 6   Инструменты агента: бронь, отмена, меню + филлер-фразы
@@ -1415,7 +1443,11 @@ Function-узлах.
                  Сделаны 20.08.2026: прямой request_callback → Postgres, общая модель
                  источника и контакта, страница /messages со статусами, удалением и бейджем новых,
                  запрет выдумывать сведения вне промпта, правил ресторана и инструментов.
-                 НЕ сделаны: Telegram-бот и workflow n8n с внешним уведомлением.
+                 Telegram-бот добавлен владельцем; его меню, поиск и создание брони
+                 20.08.2026 переведены с прямого Postgres на HTTPS API портала с Bearer-
+                 credential, общими zod-контрактами и тремя RPC под portal_app.
+                 НЕ сделаны: сохранение Telegram-передачи оператору в callback_requests
+                 и отдельное внешнее уведомление о новых сообщениях голосового канала.
 [~] Итерация 9   Портал: аутентификация, роли, дашборд, брони, заказы, коллбэки
                  — ЧАСТИЧНО 16.08.2026 (спека 004): Next.js 16.3.1, вход, две роли,
                  подписанная cookie, rate limit, двухслойная проверка роли.
@@ -1506,6 +1538,8 @@ Function-узлах.
 [ ] Реплики агента укладываются в одно-два предложения
 [ ] Rate limit на логине срабатывает
 [ ] n8n недоступен с посторонних IP
+[ ] Облачный Telegram-n8n не содержит Postgres credential и вызывает только Portal API по HTTPS
+[ ] Portal API отвергает неверный Bearer-ключ и не принимает restaurant_id от workflow
 [ ] Ни один исходящий запрос не уходит за пределы ЕС, кроме Telegram-ссылки
 [ ] Аудио не сохраняется нигде
 [ ] Восстановление Postgres из бэкапа проверено на практике

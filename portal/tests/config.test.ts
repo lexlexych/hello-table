@@ -40,6 +40,13 @@ describe("конфигурация портала", () => {
     );
   });
 
+  it("отвергает слишком короткий ключ API для n8n", async () => {
+    const env = { ...(await testEnv()), PORTAL_N8N_API_KEY: "short" };
+    expect(() => loadConfig(env as unknown as NodeJS.ProcessEnv)).toThrow(
+      /PORTAL_N8N_API_KEY/,
+    );
+  });
+
   it("не выводит значения секретов в текст ошибки", async () => {
     const env = {
       ...(await testEnv()),

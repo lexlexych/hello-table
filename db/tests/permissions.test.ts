@@ -223,18 +223,20 @@ describe("роль portal_app (§5.3)", () => {
     }
   });
 
-  it("не может вызвать телефонные функции выбора и брони столика", async () => {
-    // Портал бронирует через book_table_for_day; эти две — только для n8n.
+  it("может обслуживать n8n API через функции меню, выбора и брони", async () => {
+    // Ресторана нет — ждём доменную 45000, а НЕ отказ в правах 42501.
     for (const call of [
       "SELECT * FROM find_available_tables('00000000-0000-0000-0000-000000000000'::uuid," +
         " current_date, time '19:00', 2)",
       "SELECT * FROM create_reservation_for_table('00000000-0000-0000-0000-000000000000'::uuid," +
         " '00000000-0000-0000-0000-000000000000'::uuid, current_date, time '19:00', 2," +
         " 'x', NULL, 'de'::char(2), 'phone')",
+      "SELECT * FROM get_current_menu('00000000-0000-0000-0000-000000000000'::uuid," +
+        " 'de'::char(2))",
     ]) {
       await expect(
         asRole("portal_app", (tx) => tx.unsafe(call)),
-      ).rejects.toMatchObject({ code: "42501" });
+      ).rejects.toMatchObject({ code: "45000" });
     }
   });
 });
@@ -256,9 +258,9 @@ describe("владелец схемы", () => {
         'find_menu_items','find_pickup_slots','create_pickup_order_atomic',
         'create_callback_request','delete_callback_request','purge_expired_personal_data',
         'book_table_for_day','cancel_table_booking',
-        'find_available_tables','create_reservation_for_table')`;
+        'find_available_tables','create_reservation_for_table','get_current_menu')`;
 
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
     for (const row of rows) {
       expect(row.prosecdef).toBe(true);
       expect(row.owner).toBe("app_owner");

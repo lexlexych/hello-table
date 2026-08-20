@@ -39,6 +39,10 @@ export const configSchema = z.object({
   // Формат совпадает с CHECK на restaurants.slug (миграция 002).
   PORTAL_RESTAURANT_SLUG: z.string().regex(/^[a-z0-9-]{2,40}$/),
 
+  // Отдельный секрет машинного API для облачного n8n. Это не SESSION_SECRET:
+  // у браузерных сессий и внешней интеграции разные жизненные циклы и ротация.
+  PORTAL_N8N_API_KEY: z.string().min(32),
+
   // Локально портал работает по http, и с флагом Secure браузер cookie не сохранит.
   // За Caddy (итерация 12) значение обязано стать true.
   PORTAL_COOKIE_SECURE: z

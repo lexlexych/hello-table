@@ -15,10 +15,13 @@ export const config = {
 };
 
 const PUBLIC_PATHS = new Set(["/login", "/api/login"]);
+const N8N_API_PREFIX = "/api/integrations/n8n/";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (PUBLIC_PATHS.has(pathname)) {
+  // У машинного API нет браузерной cookie: каждый его route handler независимо
+  // проверяет отдельный Bearer-ключ. Здесь мы лишь пропускаем запрос к этой проверке.
+  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith(N8N_API_PREFIX)) {
     return NextResponse.next();
   }
 

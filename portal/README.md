@@ -105,6 +105,26 @@ Next.js 16 (App Router), Node 24. Реализованы тестовый зво
   могут использовать обе роли; то же относится к `DELETE /api/messages/[id]`, и каждый
   запрос ограничен текущим `restaurant_id`.
 
+## Машинный API для облачного n8n
+
+Telegram-workflow не получает доступ к Postgres. Три серверных endpoint принимают только
+HTTPS POST с `Authorization: Bearer <PORTAL_N8N_API_KEY>`:
+
+| Endpoint | RPC |
+|---|---|
+| `/api/integrations/n8n/menu` | `get_current_menu` |
+| `/api/integrations/n8n/availability` | `find_available_tables` |
+| `/api/integrations/n8n/reservations` | `create_reservation_for_table` |
+
+Тело не содержит `restaurant_id`: сервер подставляет ресторан, найденный по
+`PORTAL_RESTAURANT_SLUG`. Вход валидируется общими схемами `packages/contracts`, ответы
+соответствуют `docs/tool-contracts.md`. Доменный отказ приходит как HTTP 200 с
+`{ ok: false, error }`, чтобы tool-workflow мог обработать его; неверный ключ даёт 401,
+неожиданная серверная ошибка — 500. Имя гостя и тело запроса не логируются.
+
+`proxy.ts` пропускает этот префикс без браузерной cookie только до route handler; каждый
+handler независимо проверяет API key. Публичным без авторизации маршрут не становится.
+
 ## Запуск
 
 Нужны заполненный корневой `.env` (секции Postgres, LiveKit, OpenAI и Портал)
@@ -125,6 +145,7 @@ pnpm portal:dev    # http://localhost:3000
 |---|---|
 | `PORTAL_DATABASE_URL` | строка подключения под `portal_app`; пароль — `PORTAL_APP_PASSWORD`, его выставляет `pnpm db:migrate` |
 | `PORTAL_RESTAURANT_SLUG` | `restaurants.slug` ресторана, которым управляет этот экземпляр (в `db/seed.sql` — `demo`) |
+| `PORTAL_N8N_API_KEY` | отдельный случайный ключ 32+ символа; то же значение хранится в HTTP Header Auth credential облачного n8n |
 
 Если `PORTAL_APP_PASSWORD` пуст, `pnpm db:migrate` предупреждает и оставляет роль
 `NOLOGIN` — портал тогда не сможет прочитать ни одной страницы со справочником.
@@ -184,6 +205,8 @@ pnpm db:passwords
 | `lib/tables.ts`, `lib/menu.ts` | запросы справочников; `sql` и `restaurantId` — параметры |
 | `lib/pickup.ts` | заказы на самовывоз: список за сегодня, смена статуса, создание через RPC |
 | `lib/messages.ts` | очередь обратных звонков: список, счётчик новых, смена статуса и удаление через RPC |
+| `lib/n8n-api.ts` | Bearer-аутентификация, разбор тела и безопасный перевод ошибок машинного API |
+| `lib/n8n-tools.ts` | тонкие вызовы трёх RPC и zod-валидация результата для n8n |
 | `lib/schemas/` | zod-схемы форм, повторяющие `CHECK` из миграций 002 и 003 |
 | `lib/db-errors.ts` | SQLSTATE → `duplicate` / `in_use` / `invalid` |
 | `lib/api.ts` | общая обвязка маршрутов записи: роль, разбор тела, коды ответов |

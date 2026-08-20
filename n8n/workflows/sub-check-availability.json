@@ -25,7 +25,38 @@
       "name": "When Executed by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-600, 0]
+      "position": [-820, 0]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "key_value",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "portal_api_base_url"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "id": "b20000-0000-4000-8000-000000000005",
+      "name": "Get Portal API URL",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [-600, 0],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Читает value из Data Table key_value по key = portal_api_base_url."
     },
     {
       "parameters": {
@@ -33,13 +64,31 @@
           "assignments": [
             {
               "id": "b20000-0000-4000-8000-000000000100",
-              "name": "restaurant_id",
-              "value": "10000000-0000-0000-0000-000000000001",
+              "name": "portal_api_base_url",
+              "value": "={{ typeof $json.value === 'string' ? $json.value.replace(/\\/+$/, '') : '' }}",
               "type": "string"
+            },
+            {
+              "id": "b20000-0000-4000-8000-000000000101",
+              "name": "date",
+              "value": "={{ $('When Executed by Agent').first().json.date }}",
+              "type": "string"
+            },
+            {
+              "id": "b20000-0000-4000-8000-000000000102",
+              "name": "time",
+              "value": "={{ $('When Executed by Agent').first().json.time }}",
+              "type": "string"
+            },
+            {
+              "id": "b20000-0000-4000-8000-000000000103",
+              "name": "party_size",
+              "value": "={{ $('When Executed by Agent').first().json.party_size }}",
+              "type": "number"
             }
           ]
         },
-        "includeOtherFields": true,
+        "includeOtherFields": false,
         "options": {}
       },
       "id": "b20000-0000-4000-8000-000000000002",
@@ -47,38 +96,66 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [-380, 0],
-      "notes": "Единственное место, где правится restaurant_id этого инстанса."
+      "notes": "Нормализует URL из Data Table и восстанавливает параметры входа. Ресторан портал берёт из PORTAL_RESTAURANT_SLUG."
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT COALESCE(\n  jsonb_agg(\n    jsonb_build_object(\n      'table_id', table_id,\n      'label',    table_label,\n      'seats',    table_seats,\n      'zone',     table_zone\n    ) ORDER BY table_seats, table_label\n  ),\n  '[]'::jsonb\n) AS tables\nFROM find_available_tables($1::uuid, $2::date, $3::time, $4::int);",
+        "method": "POST",
+        "url": "={{ $json.portal_api_base_url + '/api/integrations/n8n/availability' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ date: $json.date, time: $json.time, party_size: $json.party_size }) }}",
         "options": {
-          "queryBatching": "single",
-          "queryReplacement": "={{ [$json.restaurant_id, $json.date, $json.time, $json.party_size] }}"
+          "timeout": 10000
         }
       },
       "id": "b20000-0000-4000-8000-000000000003",
       "name": "Find Available Tables",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [-160, 0],
       "onError": "continueRegularOutput",
-      "notes": "Мусор от LLM отсекают приведения типов в SQL: дату, время и число проверяет база."
+      "notes": "Выберите HTTP Header Auth credential: Authorization = Bearer <PORTAL_N8N_API_KEY>."
     },
     {
       "parameters": {
-        "jsCode": "// Пустой tables — это не ошибка, а «на это время свободных столиков нет»: так же\n// функция отвечает на закрытый день, прошедшее время и слишком большую компанию.\nconst CAST_ERRORS = ['22007', '22008', '22P02', '23514', 'invalid input syntax'];\nconst DOMAIN = [\n  ['45000', 'restaurant_not_found'],\n  ['45004', 'closed_at_requested_time'],\n  ['45005', 'party_too_large'],\n  ['45006', 'slot_in_past'],\n  ['45015', 'table_not_available'],\n  ['45016', 'table_already_booked'],\n];\n\nfunction toError(result) {\n  const serialized = JSON.stringify(result);\n  for (const [state, code] of DOMAIN) {\n    if (serialized.includes(state) || serialized.includes(code)) {\n      return { ok: false, error: code };\n    }\n  }\n  for (const marker of CAST_ERRORS) {\n    if (serialized.includes(marker)) return { ok: false, error: 'invalid_request' };\n  }\n  return { ok: false, error: 'unreachable' };\n}\n\nconst result = $input.first().json;\n\nif (Array.isArray(result.tables)) {\n  return [{ json: { ok: true, tables: result.tables } }];\n}\n\nreturn [{ json: toError(result) }];"
+        "jsCode": "// Portal API уже вернул типизированный tool envelope. Здесь только fallback\n// для сетевой ошибки HTTP Request, которую n8n пропустил в regular output.\nconst result = $input.first().json;\nif (result?.ok === true || (result?.ok === false && typeof result.error === 'string')) {\n  return [{ json: result }];\n}\nreturn [{ json: { ok: false, error: 'unreachable' } }];"
       },
       "id": "b20000-0000-4000-8000-000000000004",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [60, 0]
+    },
+    {
+      "parameters": {
+        "content": "## Проверка доступности через Portal API\n\n**Вход:** `date`, `time`, `party_size`.\n\n1. `Get Portal API URL` читает `value` из Data Table `key_value` по ключу `portal_api_base_url`.\n2. `Config` объединяет URL с параметрами входа.\n3. `Find Available Tables` вызывает `POST /api/integrations/n8n/availability`.\n4. `Format Response` возвращает tool envelope агенту.\n\nBearer-секрет хранится только в HTTP Header Auth credential.",
+        "height": 340,
+        "width": 560,
+        "color": 5
+      },
+      "id": "b20000-0000-4000-8000-000000000006",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-840, -460]
     }
   ],
   "connections": {
     "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Get Portal API URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Portal API URL": {
       "main": [
         [
           {

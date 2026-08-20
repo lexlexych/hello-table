@@ -111,12 +111,12 @@ describe("runtime configuration process boundary", () => {
       LIVEKIT_URL: "ws://127.0.0.1:7880",
       LIVEKIT_API_KEY: "test-key",
       LIVEKIT_API_SECRET: "secret-value-must-not-appear",
-      ELEVENLABS_API_KEY: "test-elevenlabs",
-      ELEVENLABS_VOICE_ID: "test-voice",
-      ELEVENLABS_MODEL: "test-model",
+      RESTAURANT_ID: "10000000-0000-0000-0000-000000000001",
+      AGENT_DATABASE_URL:
+        "postgres://agent_app:test-password@localhost:55432/restaurant",
       LOG_LEVEL: "info",
     };
-    delete env.MISTRAL_API_KEY;
+    delete env.OPENAI_API_KEY;
 
     const result = spawnSync(
       process.execPath,
@@ -130,7 +130,7 @@ describe("runtime configuration process boundary", () => {
     const output = `${result.stdout}${result.stderr}`;
 
     expect(result.status).not.toBe(0);
-    expect(output).toContain("MISTRAL_API_KEY");
+    expect(output).toContain("OPENAI_API_KEY");
     expect(output).not.toContain("secret-value-must-not-appear");
     expect(output).not.toMatch(/worker registered|connecting to room/i);
   });

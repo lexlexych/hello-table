@@ -35,6 +35,8 @@ export function toDbErrorCode(error: unknown): DbErrorCode | undefined {
 
 export const APP_ERROR_CODES = [
   "restaurant_not_found",
+  "closed_at_requested_time",
+  "party_too_large",
   "slot_in_past",
   "table_not_available",
   "table_already_booked",
@@ -50,6 +52,8 @@ export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
 
 const BY_APP_SQLSTATE: Record<string, AppErrorCode> = {
   "45000": "restaurant_not_found",
+  "45004": "closed_at_requested_time",
+  "45005": "party_too_large",
   "45006": "slot_in_past",
   "45015": "table_not_available",
   "45016": "table_already_booked",

@@ -18,6 +18,9 @@ const MIGRATIONS = [
   "003_menu.sql",
   "004_operations.sql",
   "005_menu_nutrition.sql",
+  "006_reservation_website_source.sql",
+  "007_restaurant_voice_mode.sql",
+  "008_callback_message_contacts.sql",
 ];
 
 describe("migration runner safety", () => {
@@ -121,22 +124,24 @@ describe("полный цикл миграций на изолированной
   it("откатывает последнюю миграцию и применяет её заново", async () => {
     await dropProjectFunctions(sql);
     const rolled = await rollbackLast(sql, resolve("db/migrations"));
-    expect(rolled).toBe("005_menu_nutrition.sql");
+    expect(rolled).toBe("008_callback_message_contacts.sql");
 
     const [gone] = await sql<{ n: number }[]>`
       SELECT count(*)::int AS n FROM information_schema.columns
-      WHERE table_schema='public' AND table_name='menu_items' AND column_name='kcal'`;
+      WHERE table_schema='public' AND table_name='callback_requests'
+        AND column_name IN ('source', 'telegram_user_id')`;
     expect(gone?.n).toBe(0);
 
     const versions = await sql<{ version: string }[]>`
       SELECT version FROM schema_migrations ORDER BY version`;
-    expect(versions.map((r) => r.version)).toEqual(MIGRATIONS.slice(0, 4));
+    expect(versions.map((r) => r.version)).toEqual(MIGRATIONS.slice(0, -1));
 
     // и обратно: миграция накатывается повторно
     await migrate(scratchUrl, { syncRolePasswords: false });
     const [back] = await sql<{ n: number }[]>`
       SELECT count(*)::int AS n FROM information_schema.columns
-      WHERE table_schema='public' AND table_name='menu_items' AND column_name='kcal'`;
-    expect(back?.n).toBe(1);
+      WHERE table_schema='public' AND table_name='callback_requests'
+        AND column_name IN ('source', 'telegram_user_id')`;
+    expect(back?.n).toBe(2);
   });
 });

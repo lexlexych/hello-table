@@ -17,6 +17,7 @@ export interface TestEnv {
   LIVEKIT_API_SECRET: string;
   PORTAL_DATABASE_URL: string;
   PORTAL_RESTAURANT_SLUG: string;
+  PORTAL_N8N_API_KEY: string;
 }
 
 let cached: TestEnv | undefined;
@@ -36,6 +37,7 @@ export async function testEnv(): Promise<TestEnv> {
     // а конфигурация всё равно обязана пройти валидацию.
     PORTAL_DATABASE_URL: "postgres://portal_app:none@127.0.0.1:1/nowhere",
     PORTAL_RESTAURANT_SLUG: "test-restaurant",
+    PORTAL_N8N_API_KEY: "test-n8n-api-key-not-a-real-secret-0123456789",
   };
   return cached;
 }

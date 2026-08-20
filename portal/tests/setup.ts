@@ -13,6 +13,7 @@ const secretNames = [
   "ELEVENLABS_API_KEY",
   "PORTAL_DATABASE_URL",
   "PORTAL_RESTAURANT_SLUG",
+  "PORTAL_N8N_API_KEY",
 ];
 
 for (const name of secretNames) {

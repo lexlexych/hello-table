@@ -57,6 +57,17 @@ export type CheckAvailabilityResponse = z.infer<
   typeof checkAvailabilityResponseSchema
 >;
 
+/** HTTP-вход облачного n8n в портал: ресторан выбирает сам портал по конфигурации. */
+export const n8nCheckAvailabilityRequestSchema = checkAvailabilityRequestSchema
+  .omit({
+    restaurant_id: true,
+    session_id: true,
+  })
+  .strict();
+export type N8nCheckAvailabilityRequest = z.infer<
+  typeof n8nCheckAvailabilityRequestSchema
+>;
+
 // ── create_reservation → reservation.create ──────────────────────────────────
 
 export const createReservationRequestSchema = toolEnvelopeSchema.extend({
@@ -88,11 +99,31 @@ export type CreateReservationResponse = z.infer<
   typeof createReservationResponseSchema
 >;
 
+/** Telegram не собирает телефон; портал всегда передаёт в RPC `NULL`. */
+export const n8nCreateReservationRequestSchema = createReservationRequestSchema
+  .omit({
+    restaurant_id: true,
+    session_id: true,
+    guest_phone: true,
+  })
+  .strict();
+export type N8nCreateReservationRequest = z.infer<
+  typeof n8nCreateReservationRequestSchema
+>;
+
 // ── search_menu → get_current_menu ─────────────────────────────────────────
 
 /** У инструмента нет аргументов от LLM: ресторан берётся из конфига агента. */
 export const searchMenuRequestSchema = toolEnvelopeSchema;
 export type SearchMenuRequest = z.infer<typeof searchMenuRequestSchema>;
+
+/** Язык меню приходит от Telegram-оркестратора; ресторан задаёт экземпляр портала. */
+export const n8nSearchMenuRequestSchema = z
+  .object({
+    language: languageSchema,
+  })
+  .strict();
+export type N8nSearchMenuRequest = z.infer<typeof n8nSearchMenuRequestSchema>;
 
 export const menuItemSchema = z.object({
   id: idSchema,

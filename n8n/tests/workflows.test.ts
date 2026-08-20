@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
  */
 const MAX_TYPE_VERSION: Record<string, number> = {
   "n8n-nodes-base.code": 2,
+  "n8n-nodes-base.dataTable": 1.1,
   "n8n-nodes-base.executeWorkflowTrigger": 1.2,
   "n8n-nodes-base.extractFromFile": 1.1,
   "n8n-nodes-base.formTrigger": 2.6,
@@ -31,6 +32,7 @@ const MAX_TYPE_VERSION: Record<string, number> = {
   "n8n-nodes-base.if": 2.3,
   "n8n-nodes-base.postgres": 2.6,
   "n8n-nodes-base.set": 3.4,
+  "n8n-nodes-base.stickyNote": 1,
   "n8n-nodes-base.telegram": 1.2,
   "n8n-nodes-base.telegramTrigger": 1.3,
   "@n8n/n8n-nodes-langchain.agent": 2.2,
@@ -60,6 +62,9 @@ const SUB_NODES = new Set([
   "@n8n/n8n-nodes-langchain.toolWorkflow",
 ]);
 
+/** Декоративные узлы не участвуют в исполняемом графе. */
+const DECORATIVE_NODES = new Set(["n8n-nodes-base.stickyNote"]);
+
 type Node = {
   name: string;
   type: string;
@@ -67,6 +72,7 @@ type Node = {
   id: string;
   credentials?: unknown;
   parameters?: Record<string, unknown>;
+  alwaysOutputData?: boolean;
 };
 type Target = { node: string; type: string; index: number };
 type Workflow = {
@@ -152,6 +158,7 @@ describe.each(FILES)("%s: граф", (file) => {
     for (const target of targetsOf(workflow)) connected.add(target.node);
 
     for (const node of workflow.nodes) {
+      if (DECORATIVE_NODES.has(node.type)) continue;
       expect(
         connected.has(node.name),
         `узел ${node.name} не соединён ни с чем`,
@@ -168,7 +175,12 @@ describe.each(FILES)("%s: граф", (file) => {
     );
 
     for (const node of workflow.nodes) {
-      if (TRIGGERS.has(node.type) || SUB_NODES.has(node.type)) continue;
+      if (
+        TRIGGERS.has(node.type) ||
+        SUB_NODES.has(node.type) ||
+        DECORATIVE_NODES.has(node.type)
+      )
+        continue;
       expect(
         mainTargets.has(node.name),
         `в узел ${node.name} не входит ни одна main-связь`,
@@ -219,4 +231,75 @@ describe("секреты и идентификаторы инстанса не �
       expect(workflowId?.value, `${node.name} несёт ID подворкфлоу`).toBe("");
     }
   });
+});
+
+const PORTAL_API_WORKFLOWS = [
+  ["sub-menu.json", "/api/integrations/n8n/menu"],
+  ["sub-check-availability.json", "/api/integrations/n8n/availability"],
+  ["sub-create-reservation.json", "/api/integrations/n8n/reservations"],
+] as const;
+
+describe("облачный n8n ходит в Portal API, а не в Postgres", () => {
+  it.each(FILES)("%s не содержит Postgres-ноды", (file) => {
+    expect(
+      load(file).nodes.some((node) => node.type === "n8n-nodes-base.postgres"),
+    ).toBe(false);
+  });
+
+  it.each(PORTAL_API_WORKFLOWS)(
+    "%s содержит один credentialed HTTP Request на %s",
+    (file, path) => {
+      const workflow = load(file);
+      const requests = workflow.nodes.filter(
+        (node) => node.type === "n8n-nodes-base.httpRequest",
+      );
+      expect(requests).toHaveLength(1);
+      const parameters = requests[0]?.parameters;
+      expect(parameters?.authentication).toBe("genericCredentialType");
+      expect(parameters?.genericAuthType).toBe("httpHeaderAuth");
+      expect(parameters?.url).toContain(path);
+      expect(JSON.stringify(workflow)).not.toContain("restaurant_id");
+      expect(JSON.stringify(workflow)).not.toContain("executeQuery");
+    },
+  );
+
+  it.each(PORTAL_API_WORKFLOWS)(
+    "%s читает Portal API URL из Data Table key_value и содержит описание",
+    (file) => {
+      const workflow = load(file);
+      const lookups = workflow.nodes.filter(
+        (node) => node.type === "n8n-nodes-base.dataTable",
+      );
+      expect(lookups).toHaveLength(1);
+      expect(lookups[0]?.parameters).toMatchObject({
+        resource: "row",
+        operation: "get",
+        dataTableId: { __rl: true, value: "key_value", mode: "name" },
+        matchType: "allConditions",
+        filters: {
+          conditions: [
+            {
+              keyName: "key",
+              condition: "eq",
+              keyValue: "portal_api_base_url",
+            },
+          ],
+        },
+        returnAll: false,
+        limit: 1,
+      });
+      expect(lookups[0]?.alwaysOutputData).toBe(true);
+
+      const notes = workflow.nodes.filter(
+        (node) => node.type === "n8n-nodes-base.stickyNote",
+      );
+      expect(notes).toHaveLength(1);
+      expect(notes[0]?.parameters?.content).toContain("Portal API");
+      expect(notes[0]?.parameters?.content).toContain("portal_api_base_url");
+
+      const serialized = JSON.stringify(workflow);
+      expect(serialized).toContain("$json.value");
+      expect(serialized).not.toContain("https://app.REPLACE_WITH_DOMAIN");
+    },
+  );
 });

@@ -24,6 +24,74 @@
 
 ---
 
+## 20.08.2026 — Общий Portal API URL в n8n Data Table
+
+**Что сделано:** `sub-menu`, `sub-check-availability` и `sub-create-reservation` больше не
+хранят одинаковый `portal_api_base_url` в своих `Config`-нодах. Каждый workflow сначала
+читает одну строку из Data Table `key_value` по условию `key = portal_api_base_url`, затем
+восстанавливает входные параметры сабворкфлоу и вызывает прежний Portal API endpoint.
+Завершающий `/` URL удаляется перед вызовом. В каждый из трёх workflow добавлен Sticky Note
+с назначением, входами и последовательностью обработки.
+
+**Изменено:** три `n8n/workflows/sub-*.json`, структурные тесты
+`n8n/tests/workflows.test.ts` и инструкция `n8n/README.md`. Новых credentials и секретов в
+экспортах нет.
+
+**Документация:** создание таблицы и строки описано в `n8n/README.md`; предусловия и осмотр
+нод обновлены в `docs/manual-tests.md` §3; причина общей точки конфигурации записана в
+`docs/architecture.md`.
+
+**Тесты:** `pnpm exec vitest run --project n8n --reporter=dot` — 1 файл, 78 тестов,
+успешно; `pnpm typecheck` — успешно; `pnpm exec biome check` для теста и трёх изменённых
+JSON — успешно. Реальный Data Table облачного n8n автотестами не вызывался.
+
+**Ручные проверки:** `docs/manual-tests.md` §3, статус «ожидает».
+
+**Итерация:** 8 остаётся `[~]`; изменение уточняет конфигурацию уже добавленного
+Telegram-транспорта.
+
+## 20.08.2026 — Portal API для облачных Telegram-workflow n8n
+
+**Что сделано:** облачные Telegram-workflow больше не подключаются к PostgreSQL напрямую.
+Портал публикует три машинных `POST` endpoint: получение меню, поиск свободных столов и
+создание брони. Доступ защищён отдельным Bearer-секретом `PORTAL_N8N_API_KEY`; restaurant
+определяется серверной настройкой `PORTAL_RESTAURANT_SLUG`, поэтому клиент не может подменить
+tenant. Портал валидирует строгие общие схемы, а бизнес-операции по-прежнему выполняют
+существующие Postgres-функции. Для совместимости Telegram-брони сохраняют
+`guest_phone = NULL` и `source = 'phone'`.
+
+Три workflow переведены с `n8n-nodes-base.postgres` на credentialed
+`n8n-nodes-base.httpRequest`. В экспортируемом JSON нет секрета, PostgreSQL credential,
+SQL-текста и `restaurant_id`; URL задаётся через Config, Bearer — через Header Auth credential
+в n8n. Самостоятельный локальный контур n8n и роль `n8n_app` не удалены.
+
+**Изменено:** созданы `portal/lib/n8n-api.ts`, `portal/lib/n8n-tools.ts`, три route handler в
+`portal/app/api/integrations/n8n/`, HTTP- и интеграционные тесты портала. Обновлены общие
+контракты `packages/contracts/src/tools.ts`, конфигурация и proxy портала, `db/roles.sql`,
+проверки прав, три `n8n/workflows/sub-*.json`, тесты и README n8n, `.env.example` и
+`vitest.config.ts`. В ходе полного прогона синхронизированы устаревшие ожидания существующих
+тестов миграций и агента с уже используемыми миграцией 008 и OpenAI-конфигурацией.
+
+**Документация:** в `docs/PROJECT.md` разделены облачный Telegram-контур через Portal API и
+локальный доверенный n8n; транспорт и схемы запросов описаны в `docs/tool-contracts.md`;
+решение и границы аутентификации зафиксированы в `docs/architecture.md`; облачный сценарий
+приёмки записан в `docs/manual-tests.md` §3. Обязательный чек-лист n8n обновлён под новую
+топологию.
+
+**Тесты:** `TEST_DATABASE_URL=postgres://app_owner:app_owner@127.0.0.1:55433/postgres pnpm
+exec vitest run --reporter=dot` — 40 файлов, 411 тестов, успешно; `pnpm typecheck` — успешно;
+`pnpm portal:build` с фиктивной конфигурацией — успешно, все три маршрута включены в build;
+`pnpm exec biome check <23 затронутых TS-файла>` — успешно. Общий `pnpm lint` не прошёл на
+22 существовавших вне этой задачи замечаниях (форматирование website/portal и ARIA в
+`portal/app/(app)/layout.tsx`); затронутые этой задачей файлы чисты. Реальные сеть, Telegram и
+облачный n8n в автотестах не вызывались.
+
+**Ручные проверки:** `docs/manual-tests.md` §3, статус «ожидает».
+
+**Итерация:** 8 остаётся `[~]`: Telegram-инструменты переведены на Portal API; сохранение
+Telegram-передачи оператору в `callback_requests` и внешнее уведомление голосового канала
+остаются.
+
 ## 20.08.2026 — Удаление карточки сообщения из портала
 
 **Что сделано:** в правом верхнем углу карточки `/messages` добавлена компактная

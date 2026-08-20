@@ -17,8 +17,7 @@ describe("download-files plugin registration", () => {
       events.push("cli");
     });
 
-    expect(process.env.MISTRAL_API_KEY).toBeUndefined();
-    expect(process.env.ELEVENLABS_API_KEY).toBeUndefined();
+    expect(process.env.OPENAI_API_KEY).toBeUndefined();
     expect(process.env.LIVEKIT_API_SECRET).toBeUndefined();
 
     await startDownloadFiles(undefined, runCli);

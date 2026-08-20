@@ -17,7 +17,38 @@
       "name": "When Executed by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-600, 0]
+      "position": [-820, 0]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "key_value",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "portal_api_base_url"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "id": "b10000-0000-4000-8000-000000000005",
+      "name": "Get Portal API URL",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [-600, 0],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Читает value из Data Table key_value по key = portal_api_base_url."
     },
     {
       "parameters": {
@@ -25,14 +56,14 @@
           "assignments": [
             {
               "id": "b10000-0000-4000-8000-000000000100",
-              "name": "restaurant_id",
-              "value": "10000000-0000-0000-0000-000000000001",
+              "name": "portal_api_base_url",
+              "value": "={{ typeof $json.value === 'string' ? $json.value.replace(/\\/+$/, '') : '' }}",
               "type": "string"
             },
             {
               "id": "b10000-0000-4000-8000-000000000101",
               "name": "language",
-              "value": "={{ ['de','ru','en'].includes($json.language) ? $json.language : 'de' }}",
+              "value": "={{ ['de','ru','en'].includes($('When Executed by Agent').first().json.language) ? $('When Executed by Agent').first().json.language : 'de' }}",
               "type": "string"
             }
           ]
@@ -45,38 +76,66 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [-380, 0],
-      "notes": "Единственное место, где правится restaurant_id этого инстанса."
+      "notes": "Нормализует URL из Data Table и язык из входа. Ресторан портал берёт из PORTAL_RESTAURANT_SLUG."
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT COALESCE(\n  jsonb_agg(\n    jsonb_build_object('id', category_id, 'name', category_name, 'items', items)\n    ORDER BY category_sort_order, category_name\n  ),\n  '[]'::jsonb\n) AS categories\nFROM (\n  SELECT category_id,\n         category_name,\n         category_sort_order,\n         jsonb_agg(\n           jsonb_build_object(\n             'id',            item_id,\n             'name',          item_name,\n             'description',   item_description,\n             'price_cents',   item_price_cents,\n             'allergens',     COALESCE(to_jsonb(item_allergens), '[]'::jsonb),\n             'is_vegetarian', item_is_vegetarian,\n             'is_vegan',      item_is_vegan,\n             'weight_g',      item_weight_g,\n             'volume_ml',     item_volume_ml,\n             'kcal',          item_kcal,\n             'protein_g',     item_protein_g,\n             'fat_g',         item_fat_g,\n             'carbs_g',       item_carbs_g\n           ) ORDER BY item_name\n         ) AS items\n  FROM get_current_menu($1::uuid, $2::char(2))\n  GROUP BY category_id, category_name, category_sort_order\n) c;",
+        "method": "POST",
+        "url": "={{ $json.portal_api_base_url + '/api/integrations/n8n/menu' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ language: $json.language }) }}",
         "options": {
-          "queryBatching": "single",
-          "queryReplacement": "={{ [$json.restaurant_id, $json.language] }}"
+          "timeout": 10000
         }
       },
       "id": "b10000-0000-4000-8000-000000000003",
       "name": "Get Current Menu",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [-160, 0],
       "onError": "continueRegularOutput",
-      "notes": "Роль n8n_app; EXECUTE на get_current_menu выдан в db/roles.sql."
+      "notes": "Выберите HTTP Header Auth credential: Authorization = Bearer <PORTAL_N8N_API_KEY>."
     },
     {
       "parameters": {
-        "jsCode": "// Каталог целиком собрала Postgres-функция. Здесь только форма ответа и код ошибки.\nconst CAST_ERRORS = ['22007', '22008', '22P02', '23514', 'invalid input syntax'];\nconst DOMAIN = [\n  ['45000', 'restaurant_not_found'],\n  ['45004', 'closed_at_requested_time'],\n  ['45005', 'party_too_large'],\n  ['45006', 'slot_in_past'],\n  ['45015', 'table_not_available'],\n  ['45016', 'table_already_booked'],\n];\n\nfunction toError(result) {\n  const serialized = JSON.stringify(result);\n  for (const [state, code] of DOMAIN) {\n    if (serialized.includes(state) || serialized.includes(code)) {\n      return { ok: false, error: code };\n    }\n  }\n  for (const marker of CAST_ERRORS) {\n    if (serialized.includes(marker)) return { ok: false, error: 'invalid_request' };\n  }\n  return { ok: false, error: 'unreachable' };\n}\n\nconst result = $input.first().json;\n\nif (Array.isArray(result.categories)) {\n  return [{ json: { ok: true, categories: result.categories } }];\n}\n\nreturn [{ json: toError(result) }];"
+        "jsCode": "// Portal API уже вернул типизированный tool envelope. Здесь только fallback\n// для сетевой ошибки HTTP Request, которую n8n пропустил в regular output.\nconst result = $input.first().json;\nif (result?.ok === true || (result?.ok === false && typeof result.error === 'string')) {\n  return [{ json: result }];\n}\nreturn [{ json: { ok: false, error: 'unreachable' } }];"
       },
       "id": "b10000-0000-4000-8000-000000000004",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [60, 0]
+    },
+    {
+      "parameters": {
+        "content": "## Получение меню через Portal API\n\n**Вход:** `language` (`de`, `ru` или `en`).\n\n1. `Get Portal API URL` читает `value` из Data Table `key_value` по ключу `portal_api_base_url`.\n2. `Config` нормализует URL и язык.\n3. `Get Current Menu` вызывает `POST /api/integrations/n8n/menu`.\n4. `Format Response` возвращает tool envelope агенту.\n\nBearer-секрет хранится только в HTTP Header Auth credential.",
+        "height": 340,
+        "width": 560,
+        "color": 5
+      },
+      "id": "b10000-0000-4000-8000-000000000006",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-840, -460]
     }
   ],
   "connections": {
     "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Get Portal API URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Portal API URL": {
       "main": [
         [
           {

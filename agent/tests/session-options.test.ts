@@ -15,10 +15,7 @@ function config(turnDetector: "audio" | "off" = "audio") {
     LIVEKIT_URL: "ws://localhost:7880",
     LIVEKIT_API_KEY: "test-key",
     LIVEKIT_API_SECRET: "test-secret",
-    MISTRAL_API_KEY: "test-mistral",
-    ELEVENLABS_API_KEY: "test-elevenlabs",
-    ELEVENLABS_VOICE_ID: "test-voice",
-    ELEVENLABS_MODEL: "test-model",
+    OPENAI_API_KEY: "test-openai",
     RESTAURANT_ID: "10000000-0000-0000-0000-000000000001",
     AGENT_DATABASE_URL:
       "postgres://agent_app:test-password@localhost:55432/restaurant",

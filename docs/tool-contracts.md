@@ -2,7 +2,7 @@
 
 Источник истины по входам и выходам инструментов. Каждый контракт дублируется zod-схемой
 в `packages/contracts/src/tools.ts`; агент валидирует результат прямого Postgres RPC до
-передачи в LLM. Совместимые n8n-входы сохраняются для будущих чатов и формуляров, но
+передачи в LLM. Облачный n8n вызывает совместимые входы через HTTPS API портала, но
 голосовой агент их не вызывает. Порядок изменения — навык
 `.claude/skills/agent-tools/SKILL.md`: контракт → zod-схема → Postgres RPC → регистрация.
 
@@ -10,7 +10,10 @@
 
 - ответ — строго типизированная JSON-структура, никакого свободного текста;
 - `restaurant_id` прямого агента берётся из валидированного конфига, а не от LLM;
-- n8n-вход дополнительно несёт `session_id` и подписывается `X-Signature`;
+- HTTP-вход n8n не принимает `restaurant_id`: портал берёт ресторан из
+  `PORTAL_RESTAURANT_SLUG`, поэтому внешний workflow не может выбрать чужого арендатора;
+- n8n аутентифицируется `Authorization: Bearer <PORTAL_N8N_API_KEY>`; секрет хранится в
+  HTTP Header Auth credential и не экспортируется в JSON workflow;
 - ошибки — перечислимые коды, а не сообщения в свободной форме.
 
 В режиме `pipeline` язык берётся из `LanguageTracker`. Tool-wrapper не произносит отдельный
@@ -33,7 +36,9 @@ tool call, а агент использует его для RPC, формати�
 `closed_at_requested_time`, `party_too_large`, `slot_in_past`, `slot_full`, `item_unavailable`,
 `empty_order`, `invalid_quantity`, `no_pickup_slot`, `pickup_too_early`,
 `order_number_exhausted`, `phone_required`, `invalid_category`, `summary_too_long`,
-`invalid_request`.
+`invalid_request`. HTTP API возвращает доменный отказ тем же JSON-envelope с HTTP 200,
+чтобы tool-workflow получил машинный код; отсутствие авторизации остаётся HTTP 401, а
+неожиданная внутренняя ошибка — HTTP 500 и транспортный `unreachable` в n8n.
 
 Транспортные коды формирует агент: `timeout`, `unreachable` (соединение с базой или иной
 ошибочный SQLSTATE), `invalid_response` (результат RPC не по контракту). Отдельного поведения на
@@ -41,9 +46,10 @@ tool call, а агент использует его для RPC, формати�
 
 **Статус.** `check_availability`, `create_reservation`, `search_menu`, `check_pickup_slots`,
 `create_pickup_order` и `request_callback` зарегистрированы в голосовом агенте и напрямую
-вызывают RPC под ролью `agent_app`. Ранее экспортированные workflow n8n для брони остаются
-для чата и формуляров; у самовывоза и обратного звонка workflow пока нет. Остальные контракты
-пока не определены.
+вызывают RPC под ролью `agent_app`. Telegram-workflow `check_availability`,
+`create_reservation` и `search_menu` вызывают API портала; облачный n8n не получает строку
+подключения к Postgres. У самовывоза и обратного звонка workflow пока нет. Остальные
+контракты пока не определены.
 
 ---
 
@@ -59,14 +65,12 @@ tool call, а агент использует его для RPC, формати�
 
 TypeScript-функция `findAvailableTables` вызывает
 `find_available_tables(p_restaurant, p_date, p_time, p_party_size)` параметризованным
-запросом. Совместимый n8n-вход называется `reservation.check`.
+запросом. Telegram-n8n вызывает `POST /api/integrations/n8n/availability`.
 
 **Запрос:**
 
 ```jsonc
 {
-  "restaurant_id": "uuid",
-  "session_id": "string",        // только n8n-вход; прямому RPC не передаётся
   "date": "2026-09-01",          // YYYY-MM-DD, местная дата ресторана
   "time": "19:00",               // HH:MM, местное время ресторана
   "party_size": 4
@@ -105,8 +109,8 @@ TypeScript-функция `findAvailableTables` вызывает
 
 TypeScript-функция `createReservation` вызывает
 `create_reservation_for_table(p_restaurant, p_table, p_date, p_time, p_party_size,
-p_guest_name, p_guest_phone, p_language, p_source)`. Совместимый n8n-вход называется
-`reservation.create`.
+p_guest_name, p_guest_phone, p_language, p_source)`. Telegram-n8n вызывает
+`POST /api/integrations/n8n/reservations`.
 
 Дата и время передаются раздельно, а не одним моментом времени: у ролей `agent_app` и
 `n8n_app` нет прав на таблицы, и прочитать часовой пояс ресторана они не могут.
@@ -116,14 +120,11 @@ p_guest_name, p_guest_phone, p_language, p_source)`. Совместимый n8n-
 
 ```jsonc
 {
-  "restaurant_id": "uuid",
-  "session_id": "string",
   "table_id": "uuid",            // из ответа check_availability
   "date": "2026-09-01",
   "time": "19:00",
   "party_size": 4,
-  "guest_name": "Anna",
-  "guest_phone": null,           // голосовой агент всегда передаёт null и не спрашивает номер
+  "guest_name": "Anna",         // API всегда передаёт guest_phone = NULL
   "language": "de"
 }
 ```
@@ -176,12 +177,14 @@ LLM строку поиска, фильтр или идентификатор р
 перед оформлением заказа перепроверяет `create_pickup_order_atomic` на стороне базы. Кеш живёт
 ровно столько, сколько сессия: следующий звонок читает каталог заново.
 
+Telegram-n8n вызывает `POST /api/integrations/n8n/menu`. В отличие от голосового агента,
+он передаёт только язык; идентификатор ресторана API берёт из конфигурации портала.
+
 **Запрос:**
 
 ```jsonc
 {
-  "restaurant_id": "uuid", // из валидированного конфига; LLM его не передаёт
-  "language": "de"         // pipeline: состояние сессии; realtime: аргумент tool call модели
+  "language": "de"
 }
 ```
 
