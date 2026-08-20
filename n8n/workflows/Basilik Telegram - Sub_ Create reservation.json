@@ -3,45 +3,38 @@
   "nodes": [
     {
       "parameters": {
-        "inputSource": "workflowInputs",
         "workflowInputs": {
           "values": [
             {
-              "name": "table_id",
-              "type": "string"
+              "name": "table_id"
             },
             {
-              "name": "date",
-              "type": "string"
+              "name": "date"
             },
             {
-              "name": "time",
-              "type": "string"
+              "name": "time"
             },
             {
               "name": "party_size",
               "type": "number"
             },
             {
-              "name": "guest_name",
-              "type": "string"
+              "name": "guest_name"
             },
             {
-              "name": "language",
-              "type": "string"
+              "name": "language"
             }
           ]
         }
       },
-      "id": "b30000-0000-4000-8000-000000000001",
+      "id": "13d5d2d7-a217-4bc9-8cd4-2c3cee2f9c10",
       "name": "When Executed by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-820, 0]
+      "position": [32, 480]
     },
     {
       "parameters": {
-        "resource": "row",
         "operation": "get",
         "dataTableId": {
           "__rl": true,
@@ -53,19 +46,17 @@
           "conditions": [
             {
               "keyName": "key",
-              "condition": "eq",
               "keyValue": "portal_api_base_url"
             }
           ]
         },
-        "returnAll": false,
         "limit": 1
       },
-      "id": "b30000-0000-4000-8000-000000000005",
+      "id": "411586ec-4c78-4805-8c1a-7b32996547f9",
       "name": "Get Portal API URL",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [-600, 0],
+      "position": [240, 480],
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
       "notes": "Читает value из Data Table key_value по key = portal_api_base_url."
@@ -118,14 +109,13 @@
             }
           ]
         },
-        "includeOtherFields": false,
         "options": {}
       },
-      "id": "b30000-0000-4000-8000-000000000002",
+      "id": "d917336e-e0d4-4095-ac31-0817215f86f3",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-380, 0],
+      "position": [464, 480],
       "notes": "Нормализует URL из Data Table и восстанавливает параметры входа. Ресторан портал берёт из PORTAL_RESTAURANT_SLUG."
     },
     {
@@ -141,11 +131,17 @@
           "timeout": 10000
         }
       },
-      "id": "b30000-0000-4000-8000-000000000003",
+      "id": "a7aec518-55d5-47d3-9424-71a96f477acb",
       "name": "Create Reservation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-160, 0],
+      "position": [688, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gqRw7NDurfwDUOGU",
+          "name": "hello-table"
+        }
+      },
       "onError": "continueRegularOutput",
       "notes": "Выберите HTTP Header Auth credential: Authorization = Bearer <PORTAL_N8N_API_KEY>. Бизнес-логика остаётся в RPC за API."
     },
@@ -153,11 +149,11 @@
       "parameters": {
         "jsCode": "// Portal API уже вернул типизированный tool envelope. Здесь только fallback\n// для сетевой ошибки HTTP Request, которую n8n пропустил в regular output.\nconst result = $input.first().json;\nif (result?.ok === true || (result?.ok === false && typeof result.error === 'string')) {\n  return [{ json: result }];\n}\nreturn [{ json: { ok: false, error: 'unreachable' } }];"
       },
-      "id": "b30000-0000-4000-8000-000000000004",
+      "id": "5795e13d-8938-4191-beb7-ac4b1fc5eea5",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [60, 0]
+      "position": [912, 480]
     },
     {
       "parameters": {
@@ -166,13 +162,14 @@
         "width": 580,
         "color": 5
       },
-      "id": "b30000-0000-4000-8000-000000000006",
+      "id": "0b1000b5-88b6-455b-88e2-19e56e5ed0e4",
       "name": "About this workflow",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-840, -480]
+      "position": [0, 0]
     }
   ],
+  "pinData": {},
   "connections": {
     "When Executed by Agent": {
       "main": [
@@ -219,13 +216,17 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "none",
-    "saveDataErrorExecution": "none",
-    "saveManualExecutions": false
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "88f8a13d-f095-4be9-ba04-ffa013b1e53a",
+  "meta": {
+    "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
+  },
+  "nodeGroups": [],
+  "id": "NcNreN44IdeGxk5o",
   "tags": []
 }

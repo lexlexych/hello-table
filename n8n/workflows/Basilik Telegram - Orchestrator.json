@@ -8,12 +8,18 @@
           "download": true
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000001",
+      "id": "c0994858-fc68-4193-858c-88681d701575",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.2,
-      "position": [-1280, 0],
+      "position": [-640, 192],
       "webhookId": "a0000000-0000-4000-8000-000000000901",
+      "credentials": {
+        "telegramApi": {
+          "id": "cbQWMy5q1faZ0Phz",
+          "name": "Telegram account 3"
+        }
+      },
       "notes": "download: true — голосовое приходит бинарным свойством data (OGG/Opus)."
     },
     {
@@ -41,24 +47,23 @@
         },
         "options": {}
       },
-      "id": "a0000000-0000-4000-8000-000000000002",
+      "id": "a9c8f456-3489-4c24-a934-9a0ed441f983",
       "name": "Voice Message?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-1060, 0]
+      "position": [-416, 192]
     },
     {
       "parameters": {
         "operation": "binaryToPropery",
-        "binaryPropertyName": "data",
         "destinationKey": "audio_base64",
         "options": {}
       },
-      "id": "a0000000-0000-4000-8000-000000000003",
+      "id": "3287e07d-1d8f-4755-8fce-e14c304664b7",
       "name": "Audio to Base64",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
-      "position": [-840, -160],
+      "position": [-192, 32],
       "notes": "OpenRouter принимает аудио только в base64, ссылку на файл он не скачивает."
     },
     {
@@ -74,11 +79,17 @@
           "timeout": 30000
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000004",
+      "id": "2980e615-4dc3-4adf-ad70-fbcce08bc249",
       "name": "Transcribe (OpenRouter)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-620, -160],
+      "position": [32, 32],
+      "credentials": {
+        "openRouterApi": {
+          "id": "R5MYn4JoZDI8oAWQ",
+          "name": "OpenRouter account 7"
+        }
+      },
       "notes": "format ogg: Telegram отдаёт голосовые в OGG/Opus, перекодировать нечем и не нужно."
     },
     {
@@ -93,14 +104,13 @@
             }
           ]
         },
-        "includeOtherFields": false,
         "options": {}
       },
-      "id": "a0000000-0000-4000-8000-000000000005",
+      "id": "0e5e4068-daae-4532-9da2-644e12f3c3ce",
       "name": "Text from Voice",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-400, -160]
+      "position": [256, 32]
     },
     {
       "parameters": {
@@ -114,14 +124,13 @@
             }
           ]
         },
-        "includeOtherFields": false,
         "options": {}
       },
-      "id": "a0000000-0000-4000-8000-000000000006",
+      "id": "8691d58f-7765-460b-81f2-2345a162e6d6",
       "name": "Text from Message",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-840, 160]
+      "position": [-192, 352]
     },
     {
       "parameters": {
@@ -131,23 +140,28 @@
           "systemMessage": "=Ты — текстовый ассистент ресторана «Ristorante Basilik» в Telegram.\n\n## Язык\nОтвечай на том языке, на котором написал гость: немецкий, русский или английский. Определяй язык по последнему сообщению и переключайся вместе с гостем.\n\n## Что ты умеешь\n- вопросы о ресторане (адрес, часы, правила отмены, оплата, банкеты) — инструмент restaurant_info;\n- вопросы о меню, ценах, аллергенах, вегетарианских и веганских блюдах — инструмент get_menu;\n- свободные столики — инструмент check_availability;\n- бронирование столика — инструмент create_reservation;\n- передача вопроса живому оператору — инструмент handoff_to_operator.\n\n## Главное правило\nНикогда не выдумывай факты о ресторане, меню, ценах, часах работы и наличии столиков. Всё это ты узнаёшь только из инструментов. Если инструмент вернул ok=false или ничего не нашёл — скажи об этом честно и не подставляй сведения из памяти.\n\n## Сегодняшняя дата\nСегодня {{ $now.setZone('Europe/Berlin').toFormat('yyyy-MM-dd') }}, {{ $now.setZone('Europe/Berlin').toFormat('cccc') }}. Часовой пояс ресторана — Europe/Berlin. «Сегодня», «завтра», «в субботу» переводи в формат YYYY-MM-DD сам, прежде чем звать инструмент.\n\n## Бронирование\n1. Узнай три вещи: дату, время и число гостей. Спрашивай коротко, по одному вопросу за сообщение.\n2. Вызови check_availability с date (YYYY-MM-DD), time (HH:MM) и party_size.\n3. Пустой список tables означает «на это время свободных столиков нет». Предложи другое время, не извиняйся длинно.\n4. Если в ответе несколько разных zone — спроси, где гостю удобнее. Если зона одна — не спрашивай.\n5. Конкретный столик гость не выбирает и номера столика не видит. Бери ПЕРВЫЙ столик выбранной зоны в порядке ответа и его table_id.\n6. Спроси имя. Номер телефона не спрашивай никогда — он не нужен.\n7. Вызови create_reservation с этим table_id, теми же date, time, party_size, именем гостя и языком разговора.\n8. Подтверждай бронь ТОЛЬКО после ok=true. До успешного ответа инструмента не пиши, что столик забронирован. При ok=false объясни причину своими словами и предложи другое время.\n\n## Меню\nget_menu возвращает весь доступный каталог с категориями. Цены приходят в price_cents — переводи их в евро (950 → 9,50 €). Достаточно вызвать инструмент один раз за разговор и дальше отвечать по уже полученному каталогу.\n\n## Когда звать оператора\nБанкет от 15 человек, жалоба, особое пожелание, вопрос, на который не ответили ни restaurant_info, ни get_menu, или инструмент дважды подряд вернул ошибку. Вызови handoff_to_operator с вопросом гостя, скажи, что передал вопрос коллеге, и не обещай конкретного срока ответа.\n\n## Тон\nПиши обычным текстом: без Markdown, без HTML-разметки и без символов < > &. Telegram отправляет сообщение в режиме HTML, и такие символы ломают отправку.\n\nКоротко, дружелюбно, без канцелярита. Не больше пяти-шести строк в сообщении. Эмодзи — максимум один и только к месту."
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000007",
+      "id": "c54dd851-9d6b-440f-a7a8-d767acb4d873",
       "name": "Restaurant Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2.2,
-      "position": [-160, 0],
+      "position": [496, 192],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "model": "openai/gpt-4.1-mini",
         "options": {}
       },
-      "id": "a0000000-0000-4000-8000-000000000008",
+      "id": "12af5699-50f4-417c-b869-7c89831c0c3b",
       "name": "OpenRouter Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
-      "position": [-360, 260]
+      "position": [288, 464],
+      "credentials": {
+        "openRouterApi": {
+          "id": "R5MYn4JoZDI8oAWQ",
+          "name": "OpenRouter account 7"
+        }
+      }
     },
     {
       "parameters": {
@@ -155,21 +169,21 @@
         "sessionKey": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
         "contextWindowLength": 20
       },
-      "id": "a0000000-0000-4000-8000-000000000009",
+      "id": "6c08136c-9283-4fc7-b0f2-b26d8ebd771a",
       "name": "Simple Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
-      "position": [-200, 260],
+      "position": [448, 464],
       "notes": "История переписки на каждый чат отдельно, последние 20 реплик."
     },
     {
       "parameters": {
-        "name": "restaurant_info",
         "description": "Справочная информация о ресторане Basilik: адрес, часы работы, правила отмены брони, оплата, парковка, банкеты, домашние животные. Вызывай при любом вопросе о самом ресторане, а не о блюдах. Возвращает найденные фрагменты справки — ответ формулируешь ты.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "EhttAuugB6AcFuiN",
           "mode": "list",
+          "cachedResultUrl": "/workflow/EhttAuugB6AcFuiN",
           "cachedResultName": "Basilik Telegram - Sub: Restaurant info (RAG)"
         },
         "workflowInputs": {
@@ -186,27 +200,28 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string"
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": true,
           "convertFieldsToString": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000010",
+      "id": "0b426797-42ac-4646-b1de-6757782f530a",
       "name": "restaurant_info",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [-40, 260]
+      "position": [608, 464]
     },
     {
       "parameters": {
-        "name": "get_menu",
         "description": "Весь доступный каталог меню с категориями, ценами в центах, аллергенами, вегетарианскими и веганскими пометками, порцией и КБЖУ. Вызывай при любом вопросе о блюдах, напитках, ценах, составе или диете. Достаточно одного вызова за разговор.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "A8ETKj2HOyBkhi9v",
           "mode": "list",
+          "cachedResultUrl": "/workflow/A8ETKj2HOyBkhi9v",
           "cachedResultName": "Basilik Telegram - Sub: Menu"
         },
         "workflowInputs": {
@@ -223,27 +238,28 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string"
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": true,
           "convertFieldsToString": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000011",
+      "id": "adc55131-d848-4ddc-8fa3-0d4b3aa36c7b",
       "name": "get_menu",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [120, 260]
+      "position": [768, 464]
     },
     {
       "parameters": {
-        "name": "check_availability",
         "description": "Свободные столики на конкретные дату, время и число гостей. Вызывай ПЕРЕД create_reservation, всегда. Возвращает tables: table_id, label, seats, zone. Пустой список означает, что на это время свободных столиков нет.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "0O7sYVHWGTS1efdz",
           "mode": "list",
+          "cachedResultUrl": "/workflow/0O7sYVHWGTS1efdz",
           "cachedResultName": "Basilik Telegram - Sub: Check availability"
         },
         "workflowInputs": {
@@ -287,20 +303,20 @@
           "convertFieldsToString": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000012",
+      "id": "66e2f507-7bdb-4ba9-9709-fc38424a31a8",
       "name": "check_availability",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [280, 260]
+      "position": [928, 464]
     },
     {
       "parameters": {
-        "name": "create_reservation",
         "description": "Бронирует конкретный столик. Вызывай только после check_availability и только с table_id из её ответа. Номер телефона не нужен. Подтверждать гостю бронь можно ТОЛЬКО после ok=true.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "NcNreN44IdeGxk5o",
           "mode": "list",
+          "cachedResultUrl": "/workflow/NcNreN44IdeGxk5o",
           "cachedResultName": "Basilik Telegram - Sub: Create reservation"
         },
         "workflowInputs": {
@@ -374,20 +390,20 @@
           "convertFieldsToString": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000013",
+      "id": "2a86645c-5b87-4857-8d80-dffa16bccb55",
       "name": "create_reservation",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [440, 260]
+      "position": [1088, 464]
     },
     {
       "parameters": {
-        "name": "handoff_to_operator",
         "description": "Передаёт вопрос гостя живому оператору в Telegram. Вызывай при банкете от 15 человек, жалобе, особом пожелании, вопросе без ответа в restaurant_info и get_menu или после двух подряд ошибок инструментов. Telegram ID гостя подставляется автоматически.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "EpLDEded4rmz79vX",
           "mode": "list",
+          "cachedResultUrl": "/workflow/EpLDEded4rmz79vX",
           "cachedResultName": "Basilik Telegram - Sub: Operator handoff"
         },
         "workflowInputs": {
@@ -441,11 +457,11 @@
           "convertFieldsToString": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000014",
+      "id": "fa50907d-efe4-4928-934e-76b61ae031fa",
       "name": "handoff_to_operator",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [600, 260],
+      "position": [1248, 464],
       "notes": "ID и username берутся из триггера, а не от модели: так оператор точно найдёт контакт."
     },
     {
@@ -456,11 +472,18 @@
           "appendAttribution": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000015",
+      "id": "087e85d1-bb05-4243-8242-d262d636bd0a",
       "name": "Send Reply",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [140, -120]
+      "position": [928, -48],
+      "webhookId": "0553e1a7-1e70-4ceb-baed-10ddd7ce39d3",
+      "credentials": {
+        "telegramApi": {
+          "id": "cbQWMy5q1faZ0Phz",
+          "name": "Telegram account 3"
+        }
+      }
     },
     {
       "parameters": {
@@ -470,14 +493,22 @@
           "appendAttribution": false
         }
       },
-      "id": "a0000000-0000-4000-8000-000000000016",
+      "id": "23dbe3f5-88f8-44c7-8739-55b3a236725f",
       "name": "Send Failure Notice",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [140, 120],
+      "position": [1040, 192],
+      "webhookId": "fb67aafa-b75e-417a-9166-15b42abe17f2",
+      "credentials": {
+        "telegramApi": {
+          "id": "cbQWMy5q1faZ0Phz",
+          "name": "Telegram account 3"
+        }
+      },
       "notes": "Фиксированный текст на трёх языках: язык разговора при сбое агента неизвестен."
     }
   ],
+  "pinData": {},
   "connections": {
     "Telegram Trigger": {
       "main": [
@@ -651,10 +682,15 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "none",
-    "saveDataErrorExecution": "none",
-    "saveManualExecutions": false
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "aab80f27-a39e-421b-848e-bededbc751ac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
+  },
+  "nodeGroups": [],
+  "id": "dfo88NlpjVWlYcOm",
   "tags": []
 }

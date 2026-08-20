@@ -24,6 +24,36 @@
 
 ---
 
+## 20.08.2026 — Восстановление входов сабворкфлоу Telegram-оркестратора
+
+**Что сделано:** после повторного выбора пяти сабворкфлоу в Tool Workflow нодах n8n
+сохранил входные схемы, но сбросил фактические `workflowInputs.value`. В оркестраторе
+восстановлены `$fromAI`-выражения для справки, меню, доступности и создания брони;
+Telegram ID и username для передачи оператору снова берутся напрямую из `Telegram Trigger`.
+Для всех пяти mappings включено преобразование типов.
+
+Сохранены внесённые владельцем изменения и синхронизация с облачным n8n: новые имена семи
+JSON, реальные workflow ID, credential references, позиции нод и остальные настройки.
+Все новые экспорты приведены к формату Biome без изменения данных.
+
+**Изменено:** `n8n/workflows/Basilik Telegram - Orchestrator.json`; структурный тест
+`n8n/tests/workflows.test.ts` теперь находит специальные workflow по внутреннему имени,
+проверяет точные mappings пяти tools, выбранные workflow ID и допускает в credentials только
+поля `id` и `name`. Обновлены имена файлов и правила переноса в `n8n/README.md`.
+
+**Документация:** фактический формат синхронизированных exports отражён в
+`docs/PROJECT.md`, `docs/architecture.md` и обязательном чек-листе n8n; секреты по-прежнему
+не хранятся в JSON.
+
+**Тесты:** `pnpm exec vitest run --project n8n --reporter=dot` — 1 файл, 83 теста,
+успешно; `pnpm typecheck` — успешно; `pnpm exec biome check n8n/workflows
+n8n/tests/workflows.test.ts` — успешно.
+
+**Ручные проверки:** `docs/manual-tests.md` §3, статус «ожидает»; дополнительно нужно
+открыть пять Tool Workflow нод оркестратора и убедиться, что поля Inputs заполнены.
+
+**Итерация:** 8 остаётся `[~]`; исправлен контракт уже добавленного Telegram-оркестратора.
+
 ## 20.08.2026 — Общий Portal API URL в n8n Data Table
 
 **Что сделано:** `sub-menu`, `sub-check-availability` и `sub-create-reservation` больше не

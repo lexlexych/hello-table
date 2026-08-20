@@ -141,20 +141,21 @@ n8n настроен не сохранять payload успешных, ошиб�
 инстансе. К прикладной базе он напрямую не подключается: три инструмента данных вызывают
 Portal API по HTTPS, а уже портал выполняет разрешённые PostgreSQL RPC.
 
-Экспорт лежит в тех же `n8n/workflows/`. Ни один файл не содержит credential ID и ID
-подворкфлоу — их создаёт и выбирает владелец в своём инстансе.
+Экспорт лежит в `n8n/workflows/` и синхронизирован с текущим облачным инстансом: в JSON
+сохранены workflow ID и ссылки credentials из `id` + `name`. Сами ключи, токены и пароли в
+экспорт не входят.
 
 ## Из чего состоит
 
 | Файл | Роль |
 |---|---|
-| `telegram-orchestrator.json` | Главный workflow: Telegram-триггер, транскрибация голосовых, агент-оркестратор, память, пять инструментов |
-| `sub-restaurant-info.json` | Поиск справки о ресторане в Qdrant |
-| `sub-menu.json` | Полный каталог меню через Portal API → `get_current_menu` |
-| `sub-check-availability.json` | Свободные столики через Portal API → `find_available_tables` |
-| `sub-create-reservation.json` | Бронь через Portal API → `create_reservation_for_table` |
-| `sub-operator-handoff.json` | Сообщение оператору в Telegram |
-| `ingest-restaurant-info.json` | Загрузка PDF со справкой в коллекцию Qdrant |
+| `Basilik Telegram - Orchestrator.json` | Главный workflow: Telegram-триггер, транскрибация голосовых, агент-оркестратор, память, пять инструментов |
+| `Basilik Telegram - Sub_ Restaurant info (RAG).json` | Поиск справки о ресторане в Qdrant |
+| `Basilik Telegram - Sub_ Menu.json` | Полный каталог меню через Portal API → `get_current_menu` |
+| `Basilik Telegram - Sub_ Check availability.json` | Свободные столики через Portal API → `find_available_tables` |
+| `Basilik Telegram - Sub_ Create reservation.json` | Бронь через Portal API → `create_reservation_for_table` |
+| `Basilik Telegram - Sub_ Operator handoff.json` | Сообщение оператору в Telegram |
+| `Basilik Telegram - Ingest_ Restaurant info to Qdrant.json` | Загрузка PDF со справкой в коллекцию Qdrant |
 
 ## Credentials
 
@@ -179,7 +180,9 @@ Portal API по HTTPS, а уже портал выполняет разрешё�
 | Header Name | `Authorization` |
 | Header Value | `Bearer <значение PORTAL_N8N_API_KEY>` |
 
-После импорта выберите этот credential в HTTP Request-нодах трёх сабворкфлоу. В их ноде
+Экспорты, синхронизированные с текущим инстансом, уже содержат ссылку на этот credential в
+формате `id` + `name`; сам Header Value в JSON не попадает. При импорте в другой инстанс
+credential нужно выбрать заново. В ноде
 **Get Portal API URL** адрес читается из общей Data Table:
 
 1. В том же проекте n8n создайте Data Table с именем `key_value`.
@@ -213,15 +216,17 @@ File** → выбрать файл → **Save**. И только потом бр
 Порядок важен: сначала шесть вспомогательных, потом оркестратор — иначе в его тулах нечего
 выбирать из списка.
 
-1. `sub-restaurant-info.json`
-2. `sub-menu.json`
-3. `sub-check-availability.json`
-4. `sub-create-reservation.json`
-5. `sub-operator-handoff.json`
-6. `ingest-restaurant-info.json`
-7. `telegram-orchestrator.json`
+1. `Basilik Telegram - Sub_ Restaurant info (RAG).json`
+2. `Basilik Telegram - Sub_ Menu.json`
+3. `Basilik Telegram - Sub_ Check availability.json`
+4. `Basilik Telegram - Sub_ Create reservation.json`
+5. `Basilik Telegram - Sub_ Operator handoff.json`
+6. `Basilik Telegram - Ingest_ Restaurant info to Qdrant.json`
+7. `Basilik Telegram - Orchestrator.json`
 
-После импорта в каждом workflow выберите credentials в нодах, где они не заданы, и сохраните.
+В исходном инстансе ссылки на credentials и пять сабворкфлоу уже синхронизированы. После
+импорта в другой инстанс выберите локальные credentials и сабворкфлоу заново, затем
+проверьте, что в пяти tool-нодах сохранились все значения `workflowInputs.value`.
 
 ## Версии узлов
 
@@ -235,8 +240,9 @@ File** → выбрать файл → **Save**. И только потом бр
 
 Проверяет это автотест `n8n/tests/workflows.test.ts`: таблица максимумов, связность графа,
 отсутствие висячих исполняемых узлов, корректный Data Table lookup, Sticky Note и
-незаполненные ID подворкфлоу. При обновлении n8n таблицу в тесте нужно пересверить с новыми
-пакетами.
+полные `workflowInputs.value` пяти инструментов оркестратора. Он также допускает только
+ссылки credentials из `id` и `name`. При обновлении n8n таблицу в тесте нужно пересверить с
+новыми пакетами.
 
 ```bash
 pnpm exec vitest run --project n8n
@@ -249,8 +255,8 @@ pnpm exec vitest run --project n8n
 |---|---|
 | Data Table `key_value` | строка `portal_api_base_url` → публичный HTTPS URL портала без завершающего `/` |
 | `sub-operator-handoff` → нода **Config** | `operator_chat_id` вместо `REPLACE_WITH_OPERATOR_CHAT_ID` |
-| `telegram-orchestrator` → пять тулов | в каждом выбрать нужный сабворкфлоу из списка (поле пустое, подсказка — в `cachedResultName`) |
-| `telegram-orchestrator` → **OpenRouter Chat Model** | модель, если `openai/gpt-4.1-mini` не устраивает |
+| `Basilik Telegram - Orchestrator` → пять тулов | при переносе в другой инстанс выбрать соответствующие сабворкфлоу и заново проверить mapping входов |
+| `Basilik Telegram - Orchestrator` → **OpenRouter Chat Model** | модель, если `openai/gpt-4.1-mini` не устраивает |
 | оба workflow с Qdrant | имя коллекции, если оно не `basilik_info` |
 
 Общий URL Portal API хранится в Data Table; локальные константы остальных workflow остаются

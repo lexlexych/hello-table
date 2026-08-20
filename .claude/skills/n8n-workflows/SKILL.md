@@ -17,8 +17,8 @@ docs/PROJECT.md §3.4, безопасность вызовов — §3.5.
    обращения к базе; `restaurant_id` снаружи не принимается, ресторан задаёт конфигурация
    портала.
 3. **Облачный n8n вызывает Portal API по HTTPS** через HTTP Request и HTTP Header Auth
-   credential (`Authorization: Bearer <PORTAL_N8N_API_KEY>`). Credential ID и секрет в
-   экспортируемый JSON не попадают.
+   credential (`Authorization: Bearer <PORTAL_N8N_API_KEY>`). Синхронизированный экспорт
+   может содержать ссылку credential (`id`, `name`), но не сам Header Value или иной секрет.
 4. **Portal API вызывает Postgres-функцию** из PROJECT.md §5.2 под ролью `portal_app`.
    Корректность и атомарность остаются в RPC, а не переезжают в Next.js или n8n.
 5. **Строго типизированный ответ** соответствует `docs/tool-contracts.md` и схеме из

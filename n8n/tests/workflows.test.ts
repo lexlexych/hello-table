@@ -89,6 +89,12 @@ const FILES = readdirSync(DIR)
 const load = (file: string): Workflow =>
   JSON.parse(readFileSync(join(DIR, file), "utf8")) as Workflow;
 
+const loadByWorkflowName = (name: string): Workflow => {
+  const match = FILES.map(load).find((workflow) => workflow.name === name);
+  if (!match) throw new Error(`workflow с именем ${name} не найден`);
+  return match;
+};
+
 const targetsOf = (workflow: Workflow): Target[] =>
   Object.values(workflow.connections)
     .flatMap((outputs) => Object.values(outputs))
@@ -205,20 +211,33 @@ describe.each(FILES)("%s: граф", (file) => {
   });
 });
 
-describe("секреты и идентификаторы инстанса не попадают в репозиторий", () => {
-  it.each(FILES)("%s не содержит credentials", (file) => {
-    for (const node of load(file).nodes) {
-      expect(
-        node.credentials,
-        `${node.name} несёт credentials`,
-      ).toBeUndefined();
-    }
-  });
+describe("ссылки на credentials и workflow синхронизированы без секретов", () => {
+  it.each(FILES)(
+    "%s содержит только ссылки credentials из id и name",
+    (file) => {
+      for (const node of load(file).nodes) {
+        if (node.credentials === undefined) continue;
+        expect(
+          node.credentials,
+          `${node.name}: credentials должны быть объектом`,
+        ).toBeTypeOf("object");
+        for (const reference of Object.values(
+          node.credentials as Record<string, unknown>,
+        )) {
+          expect(
+            reference,
+            `${node.name}: некорректная ссылка credential`,
+          ).toBeTypeOf("object");
+          expect(
+            Object.keys(reference as Record<string, unknown>).sort(),
+          ).toEqual(["id", "name"]);
+        }
+      }
+    },
+  );
 
-  it("тулы оркестратора не содержат ID подворкфлоу", () => {
-    // ID сабворкфлоу свои в каждом инстансе n8n. Владелец выбирает их из списка после
-    // импорта; закоммиченный ID молча увёл бы тул в чужой workflow.
-    const orchestrator = load("telegram-orchestrator.json");
+  it("пять тулов оркестратора содержат выбранные ID подворкфлоу", () => {
+    const orchestrator = loadByWorkflowName("Basilik Telegram - Orchestrator");
     const tools = orchestrator.nodes.filter(
       (node) => node.type === "@n8n/n8n-nodes-langchain.toolWorkflow",
     );
@@ -228,15 +247,23 @@ describe("секреты и идентификаторы инстанса не �
       const workflowId = node.parameters?.workflowId as
         | { value?: string }
         | undefined;
-      expect(workflowId?.value, `${node.name} несёт ID подворкфлоу`).toBe("");
+      expect(workflowId?.value, `${node.name}: подворкфлоу не выбран`).toMatch(
+        /^[A-Za-z0-9]+$/,
+      );
     }
   });
 });
 
 const PORTAL_API_WORKFLOWS = [
-  ["sub-menu.json", "/api/integrations/n8n/menu"],
-  ["sub-check-availability.json", "/api/integrations/n8n/availability"],
-  ["sub-create-reservation.json", "/api/integrations/n8n/reservations"],
+  ["Basilik Telegram - Sub: Menu", "/api/integrations/n8n/menu"],
+  [
+    "Basilik Telegram - Sub: Check availability",
+    "/api/integrations/n8n/availability",
+  ],
+  [
+    "Basilik Telegram - Sub: Create reservation",
+    "/api/integrations/n8n/reservations",
+  ],
 ] as const;
 
 describe("облачный n8n ходит в Portal API, а не в Postgres", () => {
@@ -248,8 +275,8 @@ describe("облачный n8n ходит в Portal API, а не в Postgres", (
 
   it.each(PORTAL_API_WORKFLOWS)(
     "%s содержит один credentialed HTTP Request на %s",
-    (file, path) => {
-      const workflow = load(file);
+    (workflowName, path) => {
+      const workflow = loadByWorkflowName(workflowName);
       const requests = workflow.nodes.filter(
         (node) => node.type === "n8n-nodes-base.httpRequest",
       );
@@ -265,14 +292,13 @@ describe("облачный n8n ходит в Portal API, а не в Postgres", (
 
   it.each(PORTAL_API_WORKFLOWS)(
     "%s читает Portal API URL из Data Table key_value и содержит описание",
-    (file) => {
-      const workflow = load(file);
+    (workflowName) => {
+      const workflow = loadByWorkflowName(workflowName);
       const lookups = workflow.nodes.filter(
         (node) => node.type === "n8n-nodes-base.dataTable",
       );
       expect(lookups).toHaveLength(1);
       expect(lookups[0]?.parameters).toMatchObject({
-        resource: "row",
         operation: "get",
         dataTableId: { __rl: true, value: "key_value", mode: "name" },
         matchType: "allConditions",
@@ -280,14 +306,19 @@ describe("облачный n8n ходит в Portal API, а не в Postgres", (
           conditions: [
             {
               keyName: "key",
-              condition: "eq",
               keyValue: "portal_api_base_url",
             },
           ],
         },
-        returnAll: false,
         limit: 1,
       });
+      const lookupParameters = lookups[0]?.parameters;
+      expect(lookupParameters?.resource ?? "row").toBe("row");
+      expect(lookupParameters?.returnAll ?? false).toBe(false);
+      const filters = lookupParameters?.filters as
+        | { conditions?: Array<{ condition?: string }> }
+        | undefined;
+      expect(filters?.conditions?.[0]?.condition ?? "eq").toBe("eq");
       expect(lookups[0]?.alwaysOutputData).toBe(true);
 
       const notes = workflow.nodes.filter(
@@ -300,6 +331,74 @@ describe("облачный n8n ходит в Portal API, а не в Postgres", (
       const serialized = JSON.stringify(workflow);
       expect(serialized).toContain("$json.value");
       expect(serialized).not.toContain("https://app.REPLACE_WITH_DOMAIN");
+    },
+  );
+});
+
+const ORCHESTRATOR_TOOL_INPUTS = {
+  restaurant_info: {
+    question:
+      "={{ $fromAI('question', 'Вопрос гостя о ресторане', 'string') }}",
+  },
+  get_menu: {
+    language:
+      "={{ $fromAI('language', 'Язык разговора: de, ru или en', 'string') }}",
+  },
+  check_availability: {
+    date: "={{ $fromAI('date', 'Дата в формате YYYY-MM-DD', 'string') }}",
+    time: "={{ $fromAI('time', 'Время в формате HH:MM', 'string') }}",
+    party_size:
+      "={{ $fromAI('party_size', 'Число гостей, целое от 1 до 100', 'number') }}",
+  },
+  create_reservation: {
+    table_id:
+      "={{ $fromAI('table_id', 'table_id первого подходящего столика из ответа check_availability', 'string') }}",
+    date: "={{ $fromAI('date', 'Дата в формате YYYY-MM-DD, та же, что в check_availability', 'string') }}",
+    time: "={{ $fromAI('time', 'Время в формате HH:MM, то же, что в check_availability', 'string') }}",
+    party_size:
+      "={{ $fromAI('party_size', 'Число гостей, целое от 1 до 100', 'number') }}",
+    guest_name:
+      "={{ $fromAI('guest_name', 'Имя гостя, которое он назвал', 'string') }}",
+    language:
+      "={{ $fromAI('language', 'Язык разговора: de, ru или en', 'string') }}",
+  },
+  handoff_to_operator: {
+    question:
+      "={{ $fromAI('question', 'Вопрос или просьба гостя своими словами, не длиннее 400 символов', 'string') }}",
+    language:
+      "={{ $fromAI('language', 'Язык разговора: de, ru или en', 'string') }}",
+    telegram_user_id:
+      "={{ $('Telegram Trigger').first().json.message.from.id }}",
+    telegram_username:
+      "={{ $('Telegram Trigger').first().json.message.from.username || '' }}",
+  },
+} as const;
+
+describe("оркестратор передаёт входы в выбранные сабворкфлоу", () => {
+  const orchestrator = loadByWorkflowName("Basilik Telegram - Orchestrator");
+
+  it.each(Object.entries(ORCHESTRATOR_TOOL_INPUTS))(
+    "%s содержит полный mapping входных параметров",
+    (toolName, expectedValues) => {
+      const tool = orchestrator.nodes.find((node) => node.name === toolName);
+      expect(tool).toBeDefined();
+      const inputs = tool?.parameters?.workflowInputs as
+        | {
+            mappingMode?: string;
+            value?: Record<string, unknown>;
+            matchingColumns?: string[];
+            schema?: Array<{ id?: string }>;
+            attemptToConvertTypes?: boolean;
+          }
+        | undefined;
+
+      expect(inputs?.mappingMode).toBe("defineBelow");
+      expect(inputs?.value).toEqual(expectedValues);
+      expect(inputs?.matchingColumns).toEqual([]);
+      expect(inputs?.attemptToConvertTypes).toBe(true);
+      expect(inputs?.schema?.map((field) => field.id)).toEqual(
+        Object.keys(expectedValues),
+      );
     },
   );
 });

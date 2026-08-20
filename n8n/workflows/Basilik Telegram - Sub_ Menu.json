@@ -1,35 +1,24 @@
 {
-  "name": "Basilik Telegram - Sub: Check availability",
+  "name": "Basilik Telegram - Sub: Menu",
   "nodes": [
     {
       "parameters": {
-        "inputSource": "workflowInputs",
         "workflowInputs": {
           "values": [
             {
-              "name": "date",
-              "type": "string"
-            },
-            {
-              "name": "time",
-              "type": "string"
-            },
-            {
-              "name": "party_size",
-              "type": "number"
+              "name": "language"
             }
           ]
         }
       },
-      "id": "b20000-0000-4000-8000-000000000001",
+      "id": "e3ae3119-3654-44be-b3c5-c761d9ed5a9a",
       "name": "When Executed by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-820, 0]
+      "position": [32, 464]
     },
     {
       "parameters": {
-        "resource": "row",
         "operation": "get",
         "dataTableId": {
           "__rl": true,
@@ -41,19 +30,17 @@
           "conditions": [
             {
               "keyName": "key",
-              "condition": "eq",
               "keyValue": "portal_api_base_url"
             }
           ]
         },
-        "returnAll": false,
         "limit": 1
       },
-      "id": "b20000-0000-4000-8000-000000000005",
+      "id": "e95086ac-b847-427d-ab0c-ee6023916384",
       "name": "Get Portal API URL",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [-600, 0],
+      "position": [240, 464],
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
       "notes": "Читает value из Data Table key_value по key = portal_api_base_url."
@@ -63,59 +50,52 @@
         "assignments": {
           "assignments": [
             {
-              "id": "b20000-0000-4000-8000-000000000100",
+              "id": "b10000-0000-4000-8000-000000000100",
               "name": "portal_api_base_url",
               "value": "={{ typeof $json.value === 'string' ? $json.value.replace(/\\/+$/, '') : '' }}",
               "type": "string"
             },
             {
-              "id": "b20000-0000-4000-8000-000000000101",
-              "name": "date",
-              "value": "={{ $('When Executed by Agent').first().json.date }}",
+              "id": "b10000-0000-4000-8000-000000000101",
+              "name": "language",
+              "value": "={{ ['de','ru','en'].includes($('When Executed by Agent').first().json.language) ? $('When Executed by Agent').first().json.language : 'de' }}",
               "type": "string"
-            },
-            {
-              "id": "b20000-0000-4000-8000-000000000102",
-              "name": "time",
-              "value": "={{ $('When Executed by Agent').first().json.time }}",
-              "type": "string"
-            },
-            {
-              "id": "b20000-0000-4000-8000-000000000103",
-              "name": "party_size",
-              "value": "={{ $('When Executed by Agent').first().json.party_size }}",
-              "type": "number"
             }
           ]
         },
-        "includeOtherFields": false,
         "options": {}
       },
-      "id": "b20000-0000-4000-8000-000000000002",
+      "id": "b9279164-6e86-4b88-9fb8-5e5a55e4fd07",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-380, 0],
-      "notes": "Нормализует URL из Data Table и восстанавливает параметры входа. Ресторан портал берёт из PORTAL_RESTAURANT_SLUG."
+      "position": [464, 464],
+      "notes": "Нормализует URL из Data Table и язык из входа. Ресторан портал берёт из PORTAL_RESTAURANT_SLUG."
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.portal_api_base_url + '/api/integrations/n8n/availability' }}",
+        "url": "={{ $json.portal_api_base_url + '/api/integrations/n8n/menu' }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ date: $json.date, time: $json.time, party_size: $json.party_size }) }}",
+        "jsonBody": "={{ JSON.stringify({ language: $json.language }) }}",
         "options": {
           "timeout": 10000
         }
       },
-      "id": "b20000-0000-4000-8000-000000000003",
-      "name": "Find Available Tables",
+      "id": "630cb742-59b3-4d9b-8bc8-b1c08fdb4a9b",
+      "name": "Get Current Menu",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-160, 0],
+      "position": [688, 464],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gqRw7NDurfwDUOGU",
+          "name": "hello-table"
+        }
+      },
       "onError": "continueRegularOutput",
       "notes": "Выберите HTTP Header Auth credential: Authorization = Bearer <PORTAL_N8N_API_KEY>."
     },
@@ -123,26 +103,27 @@
       "parameters": {
         "jsCode": "// Portal API уже вернул типизированный tool envelope. Здесь только fallback\n// для сетевой ошибки HTTP Request, которую n8n пропустил в regular output.\nconst result = $input.first().json;\nif (result?.ok === true || (result?.ok === false && typeof result.error === 'string')) {\n  return [{ json: result }];\n}\nreturn [{ json: { ok: false, error: 'unreachable' } }];"
       },
-      "id": "b20000-0000-4000-8000-000000000004",
+      "id": "a8bf50c1-0b30-42c7-983d-7d8f278e73eb",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [60, 0]
+      "position": [912, 464]
     },
     {
       "parameters": {
-        "content": "## Проверка доступности через Portal API\n\n**Вход:** `date`, `time`, `party_size`.\n\n1. `Get Portal API URL` читает `value` из Data Table `key_value` по ключу `portal_api_base_url`.\n2. `Config` объединяет URL с параметрами входа.\n3. `Find Available Tables` вызывает `POST /api/integrations/n8n/availability`.\n4. `Format Response` возвращает tool envelope агенту.\n\nBearer-секрет хранится только в HTTP Header Auth credential.",
+        "content": "## Получение меню через Portal API\n\n**Вход:** `language` (`de`, `ru` или `en`).\n\n1. `Get Portal API URL` читает `value` из Data Table `key_value` по ключу `portal_api_base_url`.\n2. `Config` нормализует URL и язык.\n3. `Get Current Menu` вызывает `POST /api/integrations/n8n/menu`.\n4. `Format Response` возвращает tool envelope агенту.\n\nBearer-секрет хранится только в HTTP Header Auth credential.",
         "height": 340,
         "width": 560,
         "color": 5
       },
-      "id": "b20000-0000-4000-8000-000000000006",
+      "id": "179762d6-d538-4074-97da-7d6cb2dbb011",
       "name": "About this workflow",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-840, -460]
+      "position": [0, 0]
     }
   ],
+  "pinData": {},
   "connections": {
     "When Executed by Agent": {
       "main": [
@@ -170,14 +151,14 @@
       "main": [
         [
           {
-            "node": "Find Available Tables",
+            "node": "Get Current Menu",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Find Available Tables": {
+    "Get Current Menu": {
       "main": [
         [
           {
@@ -189,13 +170,17 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "none",
-    "saveDataErrorExecution": "none",
-    "saveManualExecutions": false
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "139848ce-da67-4268-aa3c-1ff8fe8e4fb1",
+  "meta": {
+    "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
+  },
+  "nodeGroups": [],
+  "id": "A8ETKj2HOyBkhi9v",
   "tags": []
 }

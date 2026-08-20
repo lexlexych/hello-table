@@ -3,33 +3,28 @@
   "nodes": [
     {
       "parameters": {
-        "inputSource": "workflowInputs",
         "workflowInputs": {
           "values": [
             {
-              "name": "question",
-              "type": "string"
+              "name": "question"
             },
             {
-              "name": "language",
-              "type": "string"
+              "name": "language"
             },
             {
-              "name": "telegram_user_id",
-              "type": "string"
+              "name": "telegram_user_id"
             },
             {
-              "name": "telegram_username",
-              "type": "string"
+              "name": "telegram_username"
             }
           ]
         }
       },
-      "id": "b50000-0000-4000-8000-000000000001",
+      "id": "af1ddf24-1d79-44ed-a36c-0b0fc11e31d2",
       "name": "When Executed by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-600, 0]
+      "position": [0, 0]
     },
     {
       "parameters": {
@@ -46,11 +41,11 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "b50000-0000-4000-8000-000000000002",
+      "id": "9da084db-971e-4a41-9faf-9b45a496236e",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-380, 0],
+      "position": [224, 0],
       "notes": "Единственное место, где правится chat id оператора этого инстанса."
     },
     {
@@ -61,11 +56,18 @@
           "appendAttribution": false
         }
       },
-      "id": "b50000-0000-4000-8000-000000000003",
+      "id": "b61a3b83-4037-4006-ae2b-a98a20ce9bb0",
       "name": "Notify Operator",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-160, 0],
+      "position": [448, 0],
+      "webhookId": "561d9344-4c79-4df2-b6e7-11a9cc724958",
+      "credentials": {
+        "telegramApi": {
+          "id": "cbQWMy5q1faZ0Phz",
+          "name": "Telegram account 3"
+        }
+      },
       "onError": "continueRegularOutput",
       "notes": "Имя и телефон гостя не передаются: бот их не спрашивает и не знает."
     },
@@ -73,13 +75,14 @@
       "parameters": {
         "jsCode": "// Агент должен честно знать, дошло сообщение или нет, чтобы не обещать клиенту\n// ответ, которого не будет.\nconst result = $input.first().json;\nconst delivered = Boolean(result && result.message_id);\n\nreturn [{ json: delivered ? { ok: true, delivered: true } : { ok: false, error: 'unreachable' } }];"
       },
-      "id": "b50000-0000-4000-8000-000000000004",
+      "id": "512dbba8-b03e-4e35-954f-e45d10e9afd2",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [60, 0]
+      "position": [672, 0]
     }
   ],
+  "pinData": {},
   "connections": {
     "When Executed by Agent": {
       "main": [
@@ -115,13 +118,18 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "none",
-    "saveDataErrorExecution": "none",
-    "saveManualExecutions": false
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "c5941471-560d-4b83-a7fb-565316cbd76f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
+  },
+  "nodeGroups": [],
+  "id": "EpLDEded4rmz79vX",
   "tags": []
 }

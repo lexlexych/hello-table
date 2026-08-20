@@ -3,21 +3,19 @@
   "nodes": [
     {
       "parameters": {
-        "inputSource": "workflowInputs",
         "workflowInputs": {
           "values": [
             {
-              "name": "question",
-              "type": "string"
+              "name": "question"
             }
           ]
         }
       },
-      "id": "b40000-0000-4000-8000-000000000001",
+      "id": "396427db-b94f-4051-bf3e-70e7b4ff8f3d",
       "name": "When Executed by Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-600, 0]
+      "position": [-16, 0]
     },
     {
       "parameters": {
@@ -28,39 +26,50 @@
           "mode": "id"
         },
         "prompt": "={{ $json.question }}",
-        "topK": 4,
         "options": {}
       },
-      "id": "b40000-0000-4000-8000-000000000002",
+      "id": "0ff5d769-670c-4601-975a-e924f928b697",
       "name": "Qdrant Vector Store",
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
-      "position": [-360, 0],
+      "position": [224, 0],
+      "credentials": {
+        "qdrantApi": {
+          "id": "nLc5v183I7ucirnt",
+          "name": "Qdrant account"
+        }
+      },
       "notes": "Коллекцию basilik_info наполняет workflow ingest-restaurant-info."
     },
     {
       "parameters": {
         "jsCode": "// Сабворкфлоу возвращает найденные фрагменты, а не готовый ответ: формулировку\n// выбирает агент-оркестратор на языке клиента. Вторая LLM тут только удорожала бы\n// вызов и спорила бы с оркестратором о словах.\nconst passages = [];\n\nfor (const item of $input.all()) {\n  const doc = item.json && item.json.document ? item.json.document : item.json;\n  const text = doc && doc.pageContent;\n  if (typeof text === 'string' && text.trim().length > 0) {\n    passages.push(text.trim());\n  }\n}\n\nreturn [{ json: { ok: true, found: passages.length > 0, passages } }];"
       },
-      "id": "b40000-0000-4000-8000-000000000003",
+      "id": "b31ab906-0e30-445d-9bd4-d3f94328256e",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-120, 0]
+      "position": [544, 0]
     },
     {
       "parameters": {
-        "model": "text-embedding-3-small",
         "options": {}
       },
-      "id": "b40000-0000-4000-8000-000000000004",
+      "id": "5b691113-79cf-4786-bb2f-00cb2a9bb88b",
       "name": "Embeddings OpenAI",
       "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1.2,
-      "position": [-280, 200],
+      "position": [304, 208],
+      "credentials": {
+        "openAiApi": {
+          "id": "PRyd9vwaOIyNBpbU",
+          "name": "MyOpenAI"
+        }
+      },
       "notes": "Модель обязана совпадать в обоих workflow с Qdrant, иначе поиск не работает."
     }
   ],
+  "pinData": {},
   "connections": {
     "When Executed by Agent": {
       "main": [
@@ -96,13 +105,18 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "none",
-    "saveDataErrorExecution": "none",
-    "saveManualExecutions": false
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "a4cd6ccc-8fe8-4795-8922-56ffbab75c6a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
+  },
+  "nodeGroups": [],
+  "id": "EhttAuugB6AcFuiN",
   "tags": []
 }

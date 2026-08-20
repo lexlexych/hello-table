@@ -433,7 +433,8 @@ Telegram tool("create_reservation")
   строка подключения доступна только серверным route handlers Next.js.
 - облачный n8n знает только HTTPS URL портала, сохранённый как `portal_api_base_url` в Data
   Table `key_value`, и `PORTAL_N8N_API_KEY`, сохранённый в HTTP Header Auth credential;
-  ключ и credential ID не экспортируются в workflow JSON;
+  синхронизированный workflow JSON содержит только ссылки credentials (`id`, `name`), но не
+  ключи, токены и другие секретные значения;
 - Portal API не принимает `restaurant_id`: ресторан определяется серверным
   `PORTAL_RESTAURANT_SLUG`; `portal_app` получает точечный `EXECUTE` на три RPC API;
 - роль `n8n_app` остаётся только для self-hosted workflow в доверенной Docker-сети и не

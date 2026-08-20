@@ -18,23 +18,23 @@
         },
         "options": {}
       },
-      "id": "b60000-0000-4000-8000-000000000001",
+      "id": "a759647d-9df4-42fd-b09f-1f2dad265e32",
       "name": "Upload Form",
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
-      "position": [-760, 0],
-      "webhookId": "b60000-0000-4000-8000-000000000999",
+      "position": [0, 0],
+      "webhookId": "3320de3d-caab-4bd5-b096-0dc434fcd3f5",
       "notes": "Форма, а не чтение с диска: у облачного n8n нет файлов репозитория."
     },
     {
       "parameters": {
-        "jsCode": "// Form Trigger называет бинарное свойство по номеру поля, и это имя меняется\n// вместе с формой. Переименовываем первое вложение в data, чтобы Default Data\n// Loader работал со своим значением по умолчанию.\nconst item = $input.first();\nconst binary = item.binary || {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  throw new Error('Файл не загружен: в элементе нет бинарных данных');\n}\n\nconst file = binary[keys[0]];\n\nreturn [{\n  json: { source: file.fileName || 'upload' },\n  binary: { data: file },\n}];"
+        "jsCode": "// Form Trigger называет бинарное свойство по номеру поля, и это имя меняется\n// вместе с формой. Переименовываем первое вложение в data, чтобы Default Data\n// Loader работал со своим значением по умолчанию.\nconst item = $input.first();\nconst binary = item.binary ?? {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  throw new Error('Файл не загружен: в элементе нет бинарных данных');\n}\n\nconst file = binary[keys[0]];\n\nreturn [{\n  json: { source: file.fileName ?? 'upload' },\n  binary: { data: file },\n}];"
       },
-      "id": "b60000-0000-4000-8000-000000000002",
+      "id": "cbd4b199-7e43-445c-b83c-7874dbf0fdc0",
       "name": "Normalize Upload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-540, 0]
+      "position": [224, 0]
     },
     {
       "parameters": {
@@ -46,11 +46,17 @@
         },
         "options": {}
       },
-      "id": "b60000-0000-4000-8000-000000000003",
+      "id": "dbe5eaf4-c71e-411f-ae5c-ba4804cb54cd",
       "name": "Qdrant Vector Store",
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
-      "position": [-320, 0],
+      "position": [464, 0],
+      "credentials": {
+        "qdrantApi": {
+          "id": "nLc5v183I7ucirnt",
+          "name": "Qdrant account"
+        }
+      },
       "notes": "Повторный запуск ДОБАВЛЯЕТ фрагменты. Перед перезаливкой чистите коллекцию."
     },
     {
@@ -59,37 +65,42 @@
         "textSplittingMode": "custom",
         "options": {}
       },
-      "id": "b60000-0000-4000-8000-000000000004",
+      "id": "bbcf871b-e0ad-4f97-8581-b185f70fad1c",
       "name": "Default Data Loader",
       "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
       "typeVersion": 1.1,
-      "position": [-220, 220]
+      "position": [560, 224]
     },
     {
       "parameters": {
-        "chunkSize": 1000,
         "chunkOverlap": 200,
         "options": {}
       },
-      "id": "b60000-0000-4000-8000-000000000005",
+      "id": "6c86e60d-19e9-4e2e-b404-293e84e231fa",
       "name": "Recursive Character Text Splitter",
       "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
       "typeVersion": 1,
-      "position": [-180, 420]
+      "position": [608, 432]
     },
     {
       "parameters": {
-        "model": "text-embedding-3-small",
         "options": {}
       },
-      "id": "b60000-0000-4000-8000-000000000006",
+      "id": "05e25ae6-5db1-472d-a6e7-c637f5f780fe",
       "name": "Embeddings OpenAI",
       "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1.2,
-      "position": [-480, 220],
-      "notes": "Модель обязана совпадать в обоих workflow с Qdrant, иначе поиск не работает."
+      "position": [304, 224],
+      "credentials": {
+        "openAiApi": {
+          "id": "PRyd9vwaOIyNBpbU",
+          "name": "MyOpenAI"
+        }
+      },
+      "notes": "Та же модель обязана стоять в sub-restaurant-info, иначе поиск не работает."
     }
   ],
+  "pinData": {},
   "connections": {
     "Upload Form": {
       "main": [
@@ -150,10 +161,15 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "none",
-    "saveDataErrorExecution": "none",
-    "saveManualExecutions": false
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "364c46c2-2cc9-4208-b8e3-fbe75da74e82",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
+  },
+  "nodeGroups": [],
+  "id": "01zzWFyyvwHD7pn2",
   "tags": []
 }
