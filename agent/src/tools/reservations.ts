@@ -9,6 +9,7 @@ import {
   type ToolReply,
   toolLanguageParameter,
 } from "./shared.ts";
+import { logToolResult } from "./tool-logging.ts";
 
 /**
  * Инструменты бронирования. Порядок задан структурой, а не только промптом:
@@ -42,7 +43,14 @@ export function checkAvailabilityTool(deps: ToolDeps) {
       language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (args): Promise<ToolReply<{ tables: AvailableTable[] }>> => {
-      resolveToolLanguage(deps, args.language);
+      const startedAt = Date.now();
+      const language = resolveToolLanguage(deps, args.language);
+      const logInput = {
+        date: args.date,
+        time: args.time,
+        party_size: args.party_size,
+        language,
+      };
       const outcome = await findAvailableTables(deps.database, {
         restaurant_id: deps.restaurantId,
         date: args.date,
@@ -50,8 +58,14 @@ export function checkAvailabilityTool(deps: ToolDeps) {
         party_size: args.party_size,
       });
 
-      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
-      return { ok: true, tables: outcome.value.tables };
+      if (!outcome.ok) {
+        const reply = failure(deps.session.phrases, outcome.error);
+        logToolResult("check_availability", logInput, reply, startedAt);
+        return reply;
+      }
+      const reply = { ok: true as const, tables: outcome.value.tables };
+      logToolResult("check_availability", logInput, reply, startedAt);
+      return reply;
     },
   });
 }
@@ -87,7 +101,15 @@ export function createReservationTool(deps: ToolDeps) {
         ends_at: string;
       }>
     > => {
+      const startedAt = Date.now();
       const language = resolveToolLanguage(deps, args.language);
+      const logInput = {
+        table_id: args.table_id,
+        date: args.date,
+        time: args.time,
+        party_size: args.party_size,
+        language,
+      };
       const outcome = await createReservation(deps.database, {
         restaurant_id: deps.restaurantId,
         table_id: args.table_id,
@@ -103,14 +125,20 @@ export function createReservationTool(deps: ToolDeps) {
         language,
       });
 
-      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
-      return {
+      if (!outcome.ok) {
+        const reply = failure(deps.session.phrases, outcome.error);
+        logToolResult("create_reservation", logInput, reply, startedAt);
+        return reply;
+      }
+      const reply = {
         ok: true,
         reservation_id: outcome.value.reservation_id,
         table_label: outcome.value.table_label,
         starts_at: outcome.value.starts_at,
         ends_at: outcome.value.ends_at,
-      };
+      } as const;
+      logToolResult("create_reservation", logInput, reply, startedAt);
+      return reply;
     },
   });
 }

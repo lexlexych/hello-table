@@ -231,7 +231,7 @@ export const pickupSlotSchema = z.object({
 export type PickupSlot = z.infer<typeof pickupSlotSchema>;
 
 export const checkPickupSlotsResponseSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), slots: z.array(pickupSlotSchema) }),
+  z.object({ ok: z.literal(true), slots: z.array(pickupSlotSchema).max(1) }),
   toolFailureSchema,
 ]);
 export type CheckPickupSlotsResponse = z.infer<

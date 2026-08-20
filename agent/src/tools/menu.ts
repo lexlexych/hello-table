@@ -9,6 +9,7 @@ import {
   type ToolReply,
   toolLanguageParameter,
 } from "./shared.ts";
+import { logToolResult } from "./tool-logging.ts";
 
 /**
  * Загружает полный доступный каталог один раз за звонок на каждый язык разговора.
@@ -32,14 +33,18 @@ export function searchMenuTool(deps: ToolDeps) {
     execute: async (
       args,
     ): Promise<ToolReply<{ categories: MenuCategory[] }>> => {
+      const startedAt = Date.now();
       const language = resolveToolLanguage(deps, args.language);
+      const logInput = { language };
       const cached = deps.menuCache.get(language);
       if (cached !== undefined) {
         log().info(
           { rpc: "get_current_menu", result: "cached" },
           "database rpc",
         );
-        return { ok: true, categories: cached };
+        const reply = { ok: true as const, categories: cached };
+        logToolResult("search_menu", logInput, reply, startedAt);
+        return reply;
       }
 
       const outcome = await getCurrentMenu(deps.database, {
@@ -47,9 +52,18 @@ export function searchMenuTool(deps: ToolDeps) {
         language,
       });
 
-      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
+      if (!outcome.ok) {
+        const reply = failure(deps.session.phrases, outcome.error);
+        logToolResult("search_menu", logInput, reply, startedAt);
+        return reply;
+      }
       deps.menuCache.set(language, outcome.value.categories);
-      return { ok: true, categories: outcome.value.categories };
+      const reply = {
+        ok: true as const,
+        categories: outcome.value.categories,
+      };
+      logToolResult("search_menu", logInput, reply, startedAt);
+      return reply;
     },
   });
 }

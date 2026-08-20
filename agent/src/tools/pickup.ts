@@ -9,6 +9,7 @@ import {
   type ToolReply,
   toolLanguageParameter,
 } from "./shared.ts";
+import { logToolResult } from "./tool-logging.ts";
 
 /**
  * Инструменты самовывоза. Порядок задан структурой, как и у брони: корзину нельзя
@@ -54,10 +55,11 @@ export function checkPickupSlotsTool(deps: ToolDeps) {
   return llm.tool({
     name: "check_pickup_slots",
     description:
-      "Liefert mögliche Abholzeiten für eine bereits zusammengestellte Bestellung. Die " +
+      "Liefert genau die früheste mögliche Abholzeit für eine bereits zusammengestellte " +
+      "Bestellung. Die " +
       "Zubereitungszeit berechnet das Restaurant selbst — niemals eine Abholzeit schätzen " +
-      "oder aus dem Gedächtnis nennen. Vor create_pickup_order aufrufen und dem Gast eine " +
-      "der gelieferten Zeiten anbieten.",
+      "oder aus dem Gedächtnis nennen. Vor create_pickup_order aufrufen und dem Gast die " +
+      "gelieferte Zeit anbieten.",
     parameters: z.object({
       items: pickupItemsParameter,
       date: pickupDateParameter,
@@ -65,7 +67,17 @@ export function checkPickupSlotsTool(deps: ToolDeps) {
       language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (args): Promise<ToolReply<{ slots: PickupSlot[] }>> => {
-      resolveToolLanguage(deps, args.language);
+      const startedAt = Date.now();
+      const language = resolveToolLanguage(deps, args.language);
+      const logInput = {
+        items: args.items.map((item) => ({
+          menu_item_id: item.menu_item_id,
+          quantity: item.quantity,
+        })),
+        date: args.date ?? null,
+        time: args.time ?? null,
+        language,
+      };
       const outcome = await findPickupSlots(deps.database, {
         restaurant_id: deps.restaurantId,
         items: args.items.map((item) => ({
@@ -77,8 +89,14 @@ export function checkPickupSlotsTool(deps: ToolDeps) {
         time: args.time ?? null,
       });
 
-      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
-      return { ok: true, slots: outcome.value.slots };
+      if (!outcome.ok) {
+        const reply = failure(deps.session.phrases, outcome.error);
+        logToolResult("check_pickup_slots", logInput, reply, startedAt);
+        return reply;
+      }
+      const reply = { ok: true as const, slots: outcome.value.slots };
+      logToolResult("check_pickup_slots", logInput, reply, startedAt);
+      return reply;
     },
   });
 }
@@ -109,7 +127,17 @@ export function createPickupOrderTool(deps: ToolDeps) {
         ready_time: string;
       }>
     > => {
+      const startedAt = Date.now();
       const language = resolveToolLanguage(deps, args.language);
+      const logInput = {
+        items: args.items.map((item) => ({
+          menu_item_id: item.menu_item_id,
+          quantity: item.quantity,
+        })),
+        date: args.date ?? null,
+        time: args.time ?? null,
+        language,
+      };
       const outcome = await createPickupOrder(
         deps.database,
         {
@@ -130,8 +158,12 @@ export function createPickupOrderTool(deps: ToolDeps) {
         language,
       );
 
-      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
-      return {
+      if (!outcome.ok) {
+        const reply = failure(deps.session.phrases, outcome.error);
+        logToolResult("create_pickup_order", logInput, reply, startedAt);
+        return reply;
+      }
+      const reply = {
         ok: true,
         order_number: outcome.value.order_number,
         total: outcome.value.total,
@@ -139,7 +171,9 @@ export function createPickupOrderTool(deps: ToolDeps) {
         // ближайшего 15-минутного слота, и гостю называется именно это значение.
         ready_date: outcome.value.ready_date,
         ready_time: outcome.value.ready_time,
-      };
+      } as const;
+      logToolResult("create_pickup_order", logInput, reply, startedAt);
+      return reply;
     },
   });
 }

@@ -9,6 +9,7 @@ import {
   type ToolReply,
   toolLanguageParameter,
 } from "./shared.ts";
+import { logToolResult } from "./tool-logging.ts";
 
 /** Сообщение оператору после явного согласия гостя и подтверждения телефона. */
 export function requestCallbackTool(deps: ToolDeps) {
@@ -38,7 +39,12 @@ export function requestCallbackTool(deps: ToolDeps) {
       language: toolLanguageParameter(deps.voiceMode),
     }),
     execute: async (args): Promise<ToolReply<{ callback_id: string }>> => {
+      const startedAt = Date.now();
       const language = resolveToolLanguage(deps, args.language);
+      const logInput = {
+        category: args.category,
+        language,
+      };
       const outcome = await createCallbackRequest(deps.database, {
         restaurant_id: deps.restaurantId,
         category: args.category,
@@ -46,8 +52,17 @@ export function requestCallbackTool(deps: ToolDeps) {
         phone: args.phone,
         language,
       });
-      if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
-      return { ok: true, callback_id: outcome.value.callback_id };
+      if (!outcome.ok) {
+        const reply = failure(deps.session.phrases, outcome.error);
+        logToolResult("request_callback", logInput, reply, startedAt);
+        return reply;
+      }
+      const reply = {
+        ok: true as const,
+        callback_id: outcome.value.callback_id,
+      };
+      logToolResult("request_callback", logInput, reply, startedAt);
+      return reply;
     },
   });
 }

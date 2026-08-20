@@ -78,7 +78,7 @@ export async function findPickupSlots(
         ${itemsJson(sql, input)}::jsonb,
         ${input.date}::date,
         ${input.time}::time,
-        3::int
+        1::int
       )
     `;
     const slots: PickupSlot[] = rows.map((row) => ({
