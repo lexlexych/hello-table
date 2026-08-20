@@ -19,5 +19,13 @@ tool_errors:
   closed_at_requested_time: "Unfortunately we are closed at that time. We are open for you daily from 12 to 23 o'clock."
   party_too_large: "For that many guests I do not book over the phone. Please discuss the details with the restaurant directly."
   slot_in_past: "That time is already in the past. When would you like me to book?"
+  # Pickup: codes 45002, 45003, 45007-45011 from db/README.md.
+  slot_full: "Unfortunately the kitchen is fully booked at that time. I am happy to name the next free times."
+  item_unavailable: "That dish is unfortunately not available at the moment. Would you like something else from the menu?"
+  empty_order: "There is nothing in the order yet. What may I take down for you?"
+  invalid_quantity: "I cannot take that quantity over the phone. How many portions would you like?"
+  no_pickup_slot: "Unfortunately no pickup is possible today any more. Would you like to order for another day?"
+  pickup_too_early: "The kitchen unfortunately cannot manage it that quickly. I am happy to name the earliest possible pickup time."
+  order_number_exhausted: "Sorry, the order could not be created just now. Please contact the restaurant directly."
   invalid_category: "Sorry, I could not categorise your request. What is it about, in short?"
   summary_too_long: "Sorry, let me summarise your request more briefly."

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { VoiceCallLauncher } from "@/components/voice-call-launcher";
 import { formatPrice, type Language, languages, menu } from "@/lib/menu";
 import type { AvailableTable } from "@/lib/schemas";
 
@@ -471,6 +472,8 @@ export function RestaurantLanding() {
         <div><p className="eyebrow">Contact</p><a href="tel:+49304421788">+49 30 442 17 88</a></div>
         <p className="copyright">© 2026 Basilik</p>
       </footer>
+
+      <VoiceCallLauncher language={language} />
     </main>
   );
 }

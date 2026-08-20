@@ -51,6 +51,23 @@ the next day. Rows land in `reservations` so the voice agent sees the table as t
 `max_party_size` is deliberately not enforced there: it caps phone bookings, and the table
 is chosen by a human. Only `portal_app` holds `EXECUTE`.
 
+## Local-time wrappers for the voice agent
+
+`find_pickup_slots_local` and `create_pickup_order_local` are thin wrappers over
+`find_pickup_slots` and `create_pickup_order_atomic`. The wrapped functions take and return
+`timestamptz`, but `agent_app` cannot read tables and therefore cannot read
+`restaurants.timezone`: it can neither build a moment from "tomorrow at eight" nor speak a
+returned moment as local wall-clock time. The wrappers convert in both directions, derive the
+order's `max(prep_minutes)` from the item list, and round a requested pickup time **up** to the
+next quarter hour, which `pickup_slot_is_free` requires. All correctness — prices, total, slot
+capacity, order number, atomicity — stays in the wrapped functions. Same reasoning as
+`create_reservation_for_table`, which takes a date and a time instead of a moment.
+
+`find_pickup_slots` adds the preparation lead to **now**, not to the caller's `p_earliest`.
+Previously the lead was added on top of `p_earliest`, so a guest asking for 20:00 was offered
+20:30 as the earliest slot. Every caller before the voice agent passed `p_earliest = NULL`,
+where both forms are identical.
+
 ## Application errors
 
 | SQLSTATE | Message |

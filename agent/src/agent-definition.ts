@@ -46,6 +46,16 @@ export function createAgent(config: Config) {
     config.AGENT_DATABASE_TIMEOUT_MS,
   );
   return defineAgent<ProcessData>({
+    // Silero грузится здесь, а не в `entry`, потому что инициализация нативного
+    // onnxruntime блокирует event loop дочернего процесса на секунды. Внутри джоба это
+    // означает, что процесс не успевает ответить на пинг родителя, и фреймворк убивает его
+    // по `ORPHANED_TIMEOUT` (15 с, зашито в @livekit/agents) ещё до входа в комнату —
+    // разбор в docs/architecture.md. `prewarm` выполняется в простаивающем процессе до
+    // звонка, поэтому блокировка никого не задевает.
+    prewarm: async (proc) => {
+      proc.userData.pipelineVad ??= silero.VAD.load();
+      await proc.userData.pipelineVad;
+    },
     entry: async (ctx) => {
       const { voiceMode } = await getAgentRuntimeSettings(
         database,
@@ -129,13 +139,17 @@ export function createAgent(config: Config) {
         return;
       }
 
-      // Silero/STT/TTS создаются только после выбора pipeline. Promise кешируется на
-      // процесс, чтобы следующие pipeline-звонки не загружали модель повторно.
+      // STT/TTS создаются только после выбора pipeline. Silero к этому моменту уже загружен
+      // `prewarm`; промис кешируется на процесс, поэтому следующие звонки его переиспользуют.
+      // Realtime-режим VAD не использует, но прогрев всё равно безусловный: он идёт вне
+      // звонка и стоит только памяти простаивающего процесса.
       const tracker = new LanguageTracker({
         initial: config.AGENT_DEFAULT_LANGUAGE,
         enabled: config.AGENT_ENABLED_LANGUAGES,
         switchAfter: config.AGENT_LANGUAGE_SWITCH_AFTER,
       });
+      // Обычно промис уже разрешён `prewarm`. `??=` оставлен на случай, когда процесс
+      // джоба стартовал без прогрева: тогда цена — та же задержка, что была раньше.
       ctx.proc.userData.pipelineVad ??= silero.VAD.load();
       const vad = await ctx.proc.userData.pipelineVad;
       const tts = buildTts(config, state.language);

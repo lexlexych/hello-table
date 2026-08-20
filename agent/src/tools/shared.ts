@@ -1,6 +1,7 @@
 import {
   type Language,
   languageSchema,
+  type MenuCategory,
   type VoiceMode,
 } from "@hello-table/contracts";
 import {
@@ -10,8 +11,18 @@ import {
 } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
 
+/**
+ * Каталог меню, уже прочитанный в этом звонке, по языку разговора.
+ *
+ * Живёт ровно столько, сколько сессия: меню внутри одного разговора не меняется, а
+ * повторное чтение — это лишний RPC и вторая копия всего каталога в контексте модели.
+ * Отказы не кешируются, поэтому недоступная база не «залипает» до конца звонка.
+ */
+export type MenuCache = Map<Language, MenuCategory[]>;
+
 export interface ToolDeps {
   database: AgentDatabase;
+  menuCache: MenuCache;
   /**
    * Язык разговора и его фразы. Ссылка, а не снимок: после переключения языка тексты
    * ошибок обязаны звучать уже на новом языке.

@@ -1,5 +1,5 @@
 import type { MenuCategory } from "@hello-table/contracts";
-import { llm } from "@livekit/agents";
+import { llm, log } from "@livekit/agents";
 import { z } from "zod";
 import { getCurrentMenu } from "./menu-db.ts";
 import {
@@ -10,14 +10,22 @@ import {
   toolLanguageParameter,
 } from "./shared.ts";
 
-/** Загружает полный доступный каталог при каждом вопросе гостя о меню. */
+/**
+ * Загружает полный доступный каталог один раз за звонок на каждый язык разговора.
+ *
+ * Прежняя версия читала базу при каждом вопросе о меню. Внутри одного разговора каталог
+ * не меняется, поэтому повторное чтение давало только лишний RPC и вторую копию всего
+ * меню в контексте. Свежести это не стоит: доступность и цены позиций перед оформлением
+ * заказа всё равно перепроверяет `create_pickup_order_atomic` на стороне базы.
+ */
 export function searchMenuTool(deps: ToolDeps) {
   return llm.tool({
     name: "search_menu",
     description:
-      "Lädt das vollständige aktuelle Menü mit Kategorien, Zutaten, Allergenen, Preisen " +
-      "und Ernährungsmerkmalen. Bei jeder Frage zum Menü aufrufen und ausschließlich " +
-      "anhand dieses Ergebnisses antworten.",
+      "Lädt das vollständige aktuelle Menü mit Kategorien, Zutaten, Allergenen, Preisen, " +
+      "Gericht-IDs und Ernährungsmerkmalen. Einmal pro Gespräch aufrufen, sobald das Menü " +
+      "zum ersten Mal gebraucht wird; danach ausschließlich anhand dieses bereits " +
+      "vorliegenden Ergebnisses antworten und das Werkzeug nicht erneut aufrufen.",
     parameters: z.object({
       language: toolLanguageParameter(deps.voiceMode),
     }),
@@ -25,12 +33,22 @@ export function searchMenuTool(deps: ToolDeps) {
       args,
     ): Promise<ToolReply<{ categories: MenuCategory[] }>> => {
       const language = resolveToolLanguage(deps, args.language);
+      const cached = deps.menuCache.get(language);
+      if (cached !== undefined) {
+        log().info(
+          { rpc: "get_current_menu", result: "cached" },
+          "database rpc",
+        );
+        return { ok: true, categories: cached };
+      }
+
       const outcome = await getCurrentMenu(deps.database, {
         restaurant_id: deps.restaurantId,
         language,
       });
 
       if (!outcome.ok) return failure(deps.session.phrases, outcome.error);
+      deps.menuCache.set(language, outcome.value.categories);
       return { ok: true, categories: outcome.value.categories };
     },
   });

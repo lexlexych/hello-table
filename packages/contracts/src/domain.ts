@@ -53,6 +53,16 @@ export const DOMAIN_TOOL_ERRORS = [
   "closed_at_requested_time",
   "party_too_large",
   "slot_in_past",
+  // Самовывоз: слот выдачи занят, позиции нет в доступном меню, пустая или
+  // неправдоподобная корзина, свободных слотов до закрытия не осталось, названное
+  // время наступает раньше, чем кухня успеет приготовить.
+  "slot_full",
+  "item_unavailable",
+  "empty_order",
+  "invalid_quantity",
+  "no_pickup_slot",
+  "pickup_too_early",
+  "order_number_exhausted",
   "invalid_category",
   "summary_too_long",
   "invalid_request",

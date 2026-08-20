@@ -147,6 +147,89 @@ export const searchMenuResponseSchema = z.discriminatedUnion("ok", [
 ]);
 export type SearchMenuResponse = z.infer<typeof searchMenuResponseSchema>;
 
+// ── check_pickup_slots → find_pickup_slots_local ─────────────────────────────
+
+/**
+ * Позиция корзины самовывоза. `menu_item_id` берётся только из результата `search_menu`:
+ * отдельного инструмента поиска блюда нет, весь доступный каталог уже в контексте модели.
+ */
+export const pickupOrderItemSchema = z.object({
+  menu_item_id: idSchema,
+  quantity: z.int().min(1).max(50),
+  /** Пометка вроде «без лука». Отсутствие пожелания — `null`, а не пустая строка. */
+  note: z.string().trim().min(1).nullable(),
+});
+export type PickupOrderItem = z.infer<typeof pickupOrderItemSchema>;
+
+/**
+ * Дата и время — местные и необязательные: пустые означают «как можно раньше».
+ * Корзина обязательна, потому что время готовности зависит от `prep_minutes` позиций,
+ * а их знает только база.
+ */
+export const checkPickupSlotsRequestSchema = toolEnvelopeSchema.extend({
+  items: z.array(pickupOrderItemSchema).min(1),
+  date: dateStringSchema.nullable(),
+  time: timeStringSchema.nullable(),
+});
+export type CheckPickupSlotsRequest = z.infer<
+  typeof checkPickupSlotsRequestSchema
+>;
+
+export const pickupSlotSchema = z.object({
+  /** Момент выдачи в ISO. Модель его не произносит — он нужен для сопоставления слота. */
+  ready_at: z.string().min(1),
+  /** Местная дата ресторана, YYYY-MM-DD: по ней агент отличает сегодня от завтра. */
+  date: dateStringSchema,
+  /** Местное настенное время, HH:MM. Словами его проговаривает модель по правилам промпта. */
+  time: timeStringSchema,
+});
+export type PickupSlot = z.infer<typeof pickupSlotSchema>;
+
+export const checkPickupSlotsResponseSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), slots: z.array(pickupSlotSchema) }),
+  toolFailureSchema,
+]);
+export type CheckPickupSlotsResponse = z.infer<
+  typeof checkPickupSlotsResponseSchema
+>;
+
+// ── create_pickup_order → create_pickup_order_local ──────────────────────────
+
+export const createPickupOrderRequestSchema = toolEnvelopeSchema.extend({
+  items: z.array(pickupOrderItemSchema).min(1),
+  date: dateStringSchema.nullable(),
+  time: timeStringSchema.nullable(),
+  guest_name: z.string().trim().min(1),
+  /** Голосовой агент всегда передаёт null; поле остаётся общим для других каналов. */
+  guest_phone: z.string().trim().min(1).nullable(),
+  language: languageSchema,
+});
+export type CreatePickupOrderRequest = z.infer<
+  typeof createPickupOrderRequestSchema
+>;
+
+export const createPickupOrderResponseSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    order_id: idSchema,
+    /** Четыре цифры, которые агент диктует гостю дважды (PROJECT.md §6.1). */
+    order_number: z
+      .string()
+      .regex(/^\d{4}$/, "ожидается номер из четырёх цифр"),
+    total_cents: z.int().min(0),
+    /** Готовая локализованная сумма: LLM не форматирует деньги самостоятельно. */
+    total: z.string().trim().min(1),
+    ready_at: z.string().min(1),
+    /** Подтверждённое базой время выдачи: оно могло быть округлено вверх до 15 минут. */
+    ready_date: dateStringSchema,
+    ready_time: timeStringSchema,
+  }),
+  toolFailureSchema,
+]);
+export type CreatePickupOrderResponse = z.infer<
+  typeof createPickupOrderResponseSchema
+>;
+
 // ── request_callback → callback.create ───────────────────────────────────────
 
 export const requestCallbackRequestSchema = toolEnvelopeSchema.extend({

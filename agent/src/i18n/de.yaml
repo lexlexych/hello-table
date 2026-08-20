@@ -19,5 +19,13 @@ tool_errors:
   closed_at_requested_time: "Zu dieser Zeit haben wir leider geschlossen. Wir sind täglich von 12 bis 23 Uhr für Sie da."
   party_too_large: "Für so viele Gäste buche ich telefonisch nicht. Bitte wenden Sie sich für die Details direkt an das Restaurant."
   slot_in_past: "Dieser Zeitpunkt liegt bereits in der Vergangenheit. Für wann darf ich reservieren?"
+  # Selbstabholung: Codes 45002, 45003, 45007-45011 aus db/README.md.
+  slot_full: "Zu dieser Uhrzeit ist die Küche leider ausgebucht. Ich nenne Ihnen gern die nächsten freien Zeiten."
+  item_unavailable: "Dieses Gericht ist im Moment leider nicht verfügbar. Möchten Sie etwas anderes aus der Karte?"
+  empty_order: "In der Bestellung ist noch nichts drin. Was darf ich für Sie aufnehmen?"
+  invalid_quantity: "Diese Menge kann ich telefonisch nicht aufnehmen. Wie viele Portionen sollen es sein?"
+  no_pickup_slot: "Heute ist leider keine Abholung mehr möglich. Möchten Sie für einen anderen Tag bestellen?"
+  pickup_too_early: "So schnell schafft die Küche das leider nicht. Ich nenne Ihnen gern die frühestmögliche Abholzeit."
+  order_number_exhausted: "Entschuldigung, die Bestellung konnte gerade nicht angelegt werden. Bitte wenden Sie sich direkt an das Restaurant."
   invalid_category: "Entschuldigung, ich konnte Ihr Anliegen nicht einordnen. Worum geht es kurz gesagt?"
   summary_too_long: "Entschuldigung, ich fasse Ihr Anliegen noch einmal kürzer zusammen."

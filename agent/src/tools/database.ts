@@ -10,9 +10,16 @@ export type DatabaseOutcome<T> =
 const SQLSTATE_ERRORS = {
   "45000": "restaurant_not_found",
   "45001": "no_table_available",
+  "45002": "slot_full",
+  "45003": "item_unavailable",
   "45004": "closed_at_requested_time",
   "45005": "party_too_large",
   "45006": "slot_in_past",
+  "45007": "empty_order",
+  "45008": "invalid_quantity",
+  "45009": "no_pickup_slot",
+  "45010": "pickup_too_early",
+  "45011": "order_number_exhausted",
   "45015": "table_not_available",
   "45016": "table_already_booked",
 } as const satisfies Record<string, ToolError>;

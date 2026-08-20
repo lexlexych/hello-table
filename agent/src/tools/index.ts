@@ -1,17 +1,18 @@
-import type { Config } from "../config.ts";
 import type { Language, VoiceMode } from "@hello-table/contracts";
+import type { Config } from "../config.ts";
 import type { Phrases, SessionLanguageState } from "../session.ts";
 import type { AgentDatabase } from "./database.ts";
 import { searchMenuTool } from "./menu.ts";
+import { checkPickupSlotsTool, createPickupOrderTool } from "./pickup.ts";
 import {
   checkAvailabilityTool,
   createReservationTool,
 } from "./reservations.ts";
-import type { ToolDeps } from "./shared.ts";
+import type { MenuCache, ToolDeps } from "./shared.ts";
 
 /**
- * Набор инструментов агента. Бронирование вызывает Postgres RPC напрямую;
- * контракты — docs/tool-contracts.md.
+ * Набор инструментов агента. Бронирование, меню и самовывоз вызывают Postgres RPC
+ * напрямую; контракты — docs/tool-contracts.md.
  */
 export function buildTools(
   config: Config,
@@ -20,8 +21,12 @@ export function buildTools(
   database: AgentDatabase,
   voiceMode: VoiceMode,
 ) {
+  // Кеш меню создаётся здесь и живёт ровно один звонок: buildTools вызывается на
+  // каждую сессию, поэтому следующий гость получит каталог заново.
+  const menuCache: MenuCache = new Map();
   const deps: ToolDeps = {
     database,
+    menuCache,
     session,
     phrasesByLanguage,
     voiceMode,
@@ -34,5 +39,7 @@ export function buildTools(
     checkAvailabilityTool(deps),
     createReservationTool(deps),
     searchMenuTool(deps),
+    checkPickupSlotsTool(deps),
+    createPickupOrderTool(deps),
   ];
 }

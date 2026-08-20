@@ -12,8 +12,12 @@ BEGIN
 
   -- §6.1: время готовности считает база — из pickup_lead_minutes ресторана
   -- и максимального prep_minutes в заказе
-  v_from := GREATEST(coalesce(p_earliest, now()), now())
-            + make_interval(mins => GREATEST(r.pickup_lead_minutes, coalesce(p_prep_minutes, 0)));
+  -- Запас на подготовку отсчитывается от «сейчас», а не от желаемого гостем времени:
+  -- иначе просьба «к восьми» отодвигала бы первый слот на 20:30. Для p_earliest = NULL
+  -- обе формы совпадают — это единственный случай, который был у прежних вызывающих.
+  v_from := GREATEST(coalesce(p_earliest, now()),
+                     now() + make_interval(mins => GREATEST(r.pickup_lead_minutes,
+                                                            coalesce(p_prep_minutes, 0))));
   v_from := to_timestamp(ceil(extract(epoch FROM v_from) / 900.0) * 900);  -- вверх до 15 минут
   v_day  := (v_from AT TIME ZONE r.timezone)::date;
 
