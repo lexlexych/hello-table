@@ -28,63 +28,136 @@
     },
     {
       "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "key_value",
+          "mode": "name"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "portal_api_base_url"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "9da084db-971e-4a41-9faf-9b45a496236e",
+      "name": "Get Portal API URL",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [224, 0],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Читает value из Data Table key_value по key = portal_api_base_url."
+    },
+    {
+      "parameters": {
         "assignments": {
           "assignments": [
             {
               "id": "b50000-0000-4000-8000-000000000100",
-              "name": "operator_chat_id",
-              "value": "REPLACE_WITH_OPERATOR_CHAT_ID",
+              "name": "portal_api_base_url",
+              "value": "={{ typeof $json.value === 'string' ? $json.value.replace(/\\/+$/, '') : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "b50000-0000-4000-8000-000000000101",
+              "name": "question",
+              "value": "={{ $('When Executed by Agent').first().json.question }}",
+              "type": "string"
+            },
+            {
+              "id": "b50000-0000-4000-8000-000000000102",
+              "name": "language",
+              "value": "={{ $('When Executed by Agent').first().json.language }}",
+              "type": "string"
+            },
+            {
+              "id": "b50000-0000-4000-8000-000000000103",
+              "name": "telegram_user_id",
+              "value": "={{ $('When Executed by Agent').first().json.telegram_user_id }}",
               "type": "string"
             }
           ]
         },
-        "includeOtherFields": true,
         "options": {}
       },
-      "id": "9da084db-971e-4a41-9faf-9b45a496236e",
+      "id": "b61a3b83-4037-4006-ae2b-a98a20ce9bb0",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [224, 0],
-      "notes": "Единственное место, где правится chat id оператора этого инстанса."
+      "position": [448, 0],
+      "notes": "Нормализует URL из Data Table и восстанавливает параметры входа. Username в Portal API не передаётся."
     },
     {
       "parameters": {
-        "chatId": "={{ $json.operator_chat_id }}",
-        "text": "=Вопрос от клиента, с которым бот не справился\n\nЯзык: {{ $json.language }}\nTelegram ID: {{ $json.telegram_user_id }}\nСвязаться: {{ $json.telegram_username ? '@' + $json.telegram_username : 'tg://user?id=' + $json.telegram_user_id }}\n\nВопрос:\n{{ $json.question }}",
-        "additionalFields": {
-          "appendAttribution": false
+        "method": "POST",
+        "url": "={{ $json.portal_api_base_url + '/api/integrations/n8n/operator-handoff' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $json.question, language: $json.language, telegram_user_id: $json.telegram_user_id }) }}",
+        "options": {
+          "timeout": 10000
         }
       },
-      "id": "b61a3b83-4037-4006-ae2b-a98a20ce9bb0",
-      "name": "Notify Operator",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [448, 0],
-      "webhookId": "561d9344-4c79-4df2-b6e7-11a9cc724958",
+      "id": "512dbba8-b03e-4e35-954f-e45d10e9afd2",
+      "name": "Create Portal Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [672, 0],
       "credentials": {
-        "telegramApi": {
-          "id": "cbQWMy5q1faZ0Phz",
-          "name": "Telegram account 3"
+        "httpHeaderAuth": {
+          "id": "gqRw7NDurfwDUOGU",
+          "name": "hello-table"
         }
       },
       "onError": "continueRegularOutput",
-      "notes": "Имя и телефон гостя не передаются: бот их не спрашивает и не знает."
+      "notes": "Выберите HTTP Header Auth credential: Authorization = Bearer <PORTAL_N8N_API_KEY>."
     },
     {
       "parameters": {
-        "jsCode": "// Агент должен честно знать, дошло сообщение или нет, чтобы не обещать клиенту\n// ответ, которого не будет.\nconst result = $input.first().json;\nconst delivered = Boolean(result && result.message_id);\n\nreturn [{ json: delivered ? { ok: true, delivered: true } : { ok: false, error: 'unreachable' } }];"
+        "jsCode": "// Portal API уже вернул типизированный tool envelope. Здесь только fallback\n// для сетевой ошибки HTTP Request, которую n8n пропустил в regular output.\nconst result = $input.first().json;\nif (result?.ok === true || (result?.ok === false && typeof result.error === 'string')) {\n  return [{ json: result }];\n}\nreturn [{ json: { ok: false, error: 'unreachable' } }];"
       },
-      "id": "512dbba8-b03e-4e35-954f-e45d10e9afd2",
+      "id": "125dbba8-b03e-4e35-954f-e45d10e9afd3",
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [672, 0]
+      "position": [896, 0]
+    },
+    {
+      "parameters": {
+        "content": "## Передача вопроса оператору через Portal API\n\n**Вход:** `question`, `language`, `telegram_user_id`; `telegram_username` сохранён только для совместимости вызова.\n\n1. `Get Portal API URL` читает URL из Data Table `key_value`.\n2. `Config` объединяет URL со входом.\n3. `Create Portal Message` создаёт Telegram-карточку в `/messages`.\n4. `Format Response` возвращает tool envelope агенту.\n\nBearer-секрет хранится только в HTTP Header Auth credential.",
+        "height": 380,
+        "width": 600,
+        "color": 5
+      },
+      "id": "225dbba8-b03e-4e35-954f-e45d10e9afd4",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -480]
     }
   ],
   "pinData": {},
   "connections": {
     "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Get Portal API URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Portal API URL": {
       "main": [
         [
           {
@@ -99,14 +172,14 @@
       "main": [
         [
           {
-            "node": "Notify Operator",
+            "node": "Create Portal Message",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Notify Operator": {
+    "Create Portal Message": {
       "main": [
         [
           {

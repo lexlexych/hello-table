@@ -24,6 +24,34 @@
 
 ---
 
+## 20.08.2026 — Telegram handoff в очередь портала
+
+**Что сделано:** добавлен `POST /api/integrations/n8n/operator-handoff`. Endpoint
+принимает вопрос, язык и цифровой Telegram ID, а затем вызывает новую точечную
+RPC `create_telegram_callback_request`. Она создаёт карточку `/messages` с `source=telegram`,
+`caller_phone=NULL` и `category=other`; право `EXECUTE` выдано только `portal_app`.
+
+Workflow `Basilik Telegram - Sub: Operator handoff` больше не отправляет сообщение
+оператору через Telegram. Он читает `portal_api_base_url` из Data Table
+`key_value`, вызывает endpoint через HTTP Header Auth, возвращает типизированный
+envelope и содержит Sticky Note. Вход `telegram_username` сохранён для совместимости
+с синхронизированным оркестратором, но в Portal API не передаётся.
+
+**Изменено:** общий контракт в `packages/contracts`; новая Postgres-функция и
+роли в `db/`; Portal API route и репозиторная обёртка; актуальный JSON operator-handoff.
+
+**Документация:** обновлены `docs/PROJECT.md`, `docs/architecture.md`,
+`docs/tool-contracts.md`, `docs/manual-tests.md`, README портала, базы и n8n, а также
+канонический n8n-чек-лист.
+
+**Тесты:** не писались и не запускались по прямому указанию владельца; также
+не запускались lint, typecheck и build.
+
+**Ручные проверки:** `docs/manual-tests.md` §3.
+
+**Итерация:** 8 остаётся `[~]`; Telegram-вход в очередь портала готов,
+отдельное внешнее уведомление о новых сообщениях ещё не сделано.
+
 ## 20.08.2026 — Восстановление входов сабворкфлоу Telegram-оркестратора
 
 **Что сделано:** после повторного выбора пяти сабворкфлоу в Tool Workflow нодах n8n

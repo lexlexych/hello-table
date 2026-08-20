@@ -36,6 +36,7 @@ tool call, а агент использует его для RPC, формати�
 `closed_at_requested_time`, `party_too_large`, `slot_in_past`, `slot_full`, `item_unavailable`,
 `empty_order`, `invalid_quantity`, `no_pickup_slot`, `pickup_too_early`,
 `order_number_exhausted`, `phone_required`, `invalid_category`, `summary_too_long`,
+`telegram_user_id_required`,
 `invalid_request`. HTTP API возвращает доменный отказ тем же JSON-envelope с HTTP 200,
 чтобы tool-workflow получил машинный код; отсутствие авторизации остаётся HTTP 401, а
 неожиданная внутренняя ошибка — HTTP 500 и транспортный `unreachable` в n8n.
@@ -47,8 +48,8 @@ tool call, а агент использует его для RPC, формати�
 **Статус.** `check_availability`, `create_reservation`, `search_menu`, `check_pickup_slots`,
 `create_pickup_order` и `request_callback` зарегистрированы в голосовом агенте и напрямую
 вызывают RPC под ролью `agent_app`. Telegram-workflow `check_availability`,
-`create_reservation` и `search_menu` вызывают API портала; облачный n8n не получает строку
-подключения к Postgres. У самовывоза и обратного звонка workflow пока нет. Остальные
+`create_reservation`, `search_menu` и `handoff_to_operator` вызывают API портала;
+облачный n8n не получает строку подключения к Postgres. У самовывоза workflow пока нет. Остальные
 контракты пока не определены.
 
 ---
@@ -375,8 +376,11 @@ p_items, p_date, p_time, p_guest_name, p_guest_phone, p_language, p_source)`; т
 
 Голосовой агент вызывает `create_callback_request(...)` напрямую под ролью `agent_app`.
 Функция сохраняет запись с `source=voice` в `caller_phone`; источник не принимает LLM.
-Будущий Telegram-вход использует отдельный `telegram_user_id`. Внешнее Telegram-уведомление
-и Telegram-бот в этот путь не входят.
+
+Telegram-сабворкфлоу вызывает `POST /api/integrations/n8n/operator-handoff`, а Portal API —
+`create_telegram_callback_request(...)` под ролью `portal_app`. RPC сама задаёт
+`source=telegram`, `caller_phone=NULL` и `category=other`; workflow не может подменить
+источник или категорию. Telegram username нестабилен и в Portal API не передаётся.
 
 **Запрос:**
 
@@ -394,6 +398,20 @@ p_items, p_date, p_time, p_guest_name, p_guest_phone, p_language, p_source)`; т
 **Ответ (успех):** `{ "ok": true, "callback_id": "uuid" }`
 
 **Ответ (ошибка):** `{ "ok": false, "error": "phone_required" | "invalid_category" | "summary_too_long" | "restaurant_not_found" | "invalid_request" }`
+
+**Telegram HTTP-запрос:**
+
+```json
+{
+  "question": "string, 1–400 символов",
+  "language": "de",
+  "telegram_user_id": "123456789"
+}
+```
+
+Telegram-путь возвращает тот же успешный envelope с `callback_id`; дополнительный
+доменный отказ защитной RPC — `telegram_user_id_required`. Вопрос попадает в
+очередь `/messages`, а не в Telegram-чат оператора.
 
 **Порядок разговора:** если разрешённые источники не содержат ответа, агент ничего не
 додумывает, предлагает передать вопрос оператору и ждёт согласия. Затем спрашивает номер,

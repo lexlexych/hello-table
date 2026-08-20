@@ -111,6 +111,20 @@ export type N8nCreateReservationRequest = z.infer<
   typeof n8nCreateReservationRequestSchema
 >;
 
+// ── operator_handoff → callback_requests ──
+
+/** Telegram ID хранится для связи; username нестабилен и не передаётся. */
+export const n8nOperatorHandoffRequestSchema = z
+  .object({
+    question: z.string().trim().min(1).max(400),
+    language: languageSchema,
+    telegram_user_id: z.string().trim().min(1).max(32).regex(/^\d+$/),
+  })
+  .strict();
+export type N8nOperatorHandoffRequest = z.infer<
+  typeof n8nOperatorHandoffRequestSchema
+>;
+
 // ── search_menu → get_current_menu ─────────────────────────────────────────
 
 /** У инструмента нет аргументов от LLM: ресторан берётся из конфига агента. */

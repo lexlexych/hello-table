@@ -91,15 +91,17 @@ where both forms are identical.
 | 45014 | summary_too_long |
 | 45015 | table_not_available |
 | 45016 | table_already_booked |
+| 45017 | telegram_user_id_required |
 
 ## Callback messages
 
 `callback_requests` is the shared operator queue. Voice requests use `source='voice'` and
-`caller_phone`; the future Telegram input will use `source='telegram'` and
-`telegram_user_id`. The CHECK constraints prohibit mixing both contacts in one row.
-`create_callback_request` is the voice RPC and fixes its source itself, so the model cannot
-choose or spoof a channel. Existing rows without a contact remain readable after migration,
-but every new voice request requires a non-empty phone.
+`caller_phone`; Telegram handoff uses `source='telegram'` and `telegram_user_id`. The CHECK
+constraints prohibit mixing both contacts in one row. `create_callback_request` is the voice
+RPC, while `create_telegram_callback_request` is the Portal API RPC; each fixes its own source,
+so the caller cannot choose or spoof a channel. Existing rows without a contact remain readable
+after migration, but every new voice request requires a phone and every new Telegram request a
+stable Telegram ID.
 
 `delete_callback_request` removes at most one row matching both the configured restaurant and
 the message UUID. A missing row and a UUID from another restaurant both return `false`.

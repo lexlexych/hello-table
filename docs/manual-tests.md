@@ -121,7 +121,7 @@ tool-филлера, был ли пропущен вопрос о зоне
 
 **Предусловия:** выполнена проверка 1; портал доступен облачному n8n по HTTPS и работает
 только с демо-данными. В окружении портала задан случайный `PORTAL_N8N_API_KEY` длиной
-32+ символа. По `n8n/README.md` семь workflow импортированы отдельно, в трёх HTTP
+32+ символа. По `n8n/README.md` семь workflow импортированы отдельно, в четырёх HTTP
 Request-нодах выбран HTTP Header Auth credential. В Data Table `key_value` есть строковые
 столбцы `key`, `value` и ровно одна строка `portal_api_base_url` → HTTPS URL портала без
 завершающего `/`. В облачном n8n нет Postgres credential. Дата и время проверки — в будущем
@@ -132,7 +132,8 @@ Request-нодах выбран HTTP Header Auth credential. В Data Table `key_
    `restaurant_info` и `get_menu` имеют по одному полю, `check_availability` — три,
    `create_reservation` — шесть, `handoff_to_operator` — четыре; вместо выражений нет
    пустых значений или константы `party_size = 0`.
-2. Откройте `sub-menu`, `sub-check-availability` и `sub-create-reservation`; убедитесь, что
+2. Откройте `sub-menu`, `sub-check-availability`, `sub-create-reservation` и
+   `sub-operator-handoff`; убедитесь, что
    в них нет Postgres-нод, присутствуют Sticky Note и `Get Portal API URL`, а HTTP
    Request-ноды не показывают предупреждений credential.
 3. Запустите `sub-menu` с `language=de` через тестовый вызов сабворкфлоу.
@@ -145,6 +146,8 @@ Request-нодах выбран HTTP Header Auth credential. В Data Table `key_
    поиск и затем верните правильное значение.
 9. Временно переименуйте ключ `portal_api_base_url` в Data Table, повторите поиск и затем
    верните исходный ключ.
+10. Вызовите `sub-operator-handoff` с вымышленным вопросом, `language=de`,
+    цифровым `telegram_user_id` и любым `telegram_username`. Откройте `/messages`.
 
 **Ожидаемый результат:**
 - меню приходит локализованным и содержит только доступные позиции с типизированными полями;
@@ -157,11 +160,14 @@ Request-нодах выбран HTTP Header Auth credential. В Data Table `key_
 - неверный Bearer-ключ получает HTTP 401, а база не вызывается;
 - отсутствующий ключ конфигурации даёт `unreachable`, запрос к Portal API не отправляется;
 - запросы не содержат `restaurant_id`: портал использует `PORTAL_RESTAURANT_SLUG`;
-- все три workflow берут одинаковый URL из строки Data Table, захардкоженного URL в
+- все четыре workflow берут одинаковый URL из строки Data Table, захардкоженного URL в
   `Config` нет;
+- handoff возвращает `{ "ok": true, "callback_id": "..." }`; в `/messages` появляется
+  одна карточка с источником Telegram, категорией `other` и указанным ID;
+  отдельное сообщение в Telegram-чат оператора не отправляется;
 - В истории executions n8n нет сохранённого payload с вымышленными именем и телефоном.
 
-**Что записать:** статусы и машинные коды пяти вызовов, выбранную зону без table ID,
+**Что записать:** статусы и машинные коды шести вызовов, выбранную зону без table ID,
 результат повторной брони и наличие либо отсутствие execution payload. Не записывать имя,
 идентификаторы и содержимое меню.
 

@@ -47,6 +47,8 @@ export const APP_ERROR_CODES = [
   "no_pickup_slot",
   "pickup_too_early",
   "order_number_exhausted",
+  "summary_too_long",
+  "telegram_user_id_required",
 ] as const;
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
 
@@ -67,6 +69,8 @@ const BY_APP_SQLSTATE: Record<string, AppErrorCode> = {
   "45009": "no_pickup_slot",
   "45010": "pickup_too_early",
   "45011": "order_number_exhausted",
+  "45014": "summary_too_long",
+  "45017": "telegram_user_id_required",
 };
 
 export function toAppErrorCode(error: unknown): AppErrorCode | undefined {

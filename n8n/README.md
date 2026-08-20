@@ -138,7 +138,7 @@ n8n настроен не сохранять payload успешных, ошиб�
 Второй канал ресторана: Telegram-бот, который принимает текст и голосовые сообщения,
 отвечает на вопросы о ресторане и меню, проверяет и создаёт брони и передаёт вопрос
 оператору. Он живёт **не в локальном n8n из Compose выше**, а в отдельном облачном
-инстансе. К прикладной базе он напрямую не подключается: три инструмента данных вызывают
+инстансе. К прикладной базе он напрямую не подключается: четыре инструмента данных вызывают
 Portal API по HTTPS, а уже портал выполняет разрешённые PostgreSQL RPC.
 
 Экспорт лежит в `n8n/workflows/` и синхронизирован с текущим облачным инстансом: в JSON
@@ -154,7 +154,7 @@ Portal API по HTTPS, а уже портал выполняет разрешё�
 | `Basilik Telegram - Sub_ Menu.json` | Полный каталог меню через Portal API → `get_current_menu` |
 | `Basilik Telegram - Sub_ Check availability.json` | Свободные столики через Portal API → `find_available_tables` |
 | `Basilik Telegram - Sub_ Create reservation.json` | Бронь через Portal API → `create_reservation_for_table` |
-| `Basilik Telegram - Sub_ Operator handoff.json` | Сообщение оператору в Telegram |
+| `Basilik Telegram - Sub_ Operator handoff.json` | Вопрос в очередь `/messages` через Portal API → `create_telegram_callback_request` |
 | `Basilik Telegram - Ingest_ Restaurant info to Qdrant.json` | Загрузка PDF со справкой в коллекцию Qdrant |
 
 ## Credentials
@@ -163,11 +163,11 @@ Portal API по HTTPS, а уже портал выполняет разрешё�
 
 | Credential | Тип | Где используется |
 |---|---|---|
-| Telegram Bot API | **Telegram** | триггер и ответы в оркестраторе, уведомление оператору |
+| Telegram Bot API | **Telegram** | триггер и ответы в оркестраторе |
 | OpenRouter | **OpenRouter** | модель агента и HTTP-нода транскрибации |
 | OpenAI | **OpenAI** | только эмбеддинги (RAG и загрузчик) |
 | Qdrant | **Qdrant** | оба workflow с векторным хранилищем |
-| Portal API | **HTTP Header Auth** | три сабворкфлоу меню и бронирования |
+| Portal API | **HTTP Header Auth** | четыре сабворкфлоу меню, бронирования и передачи оператору |
 
 ### Portal API
 
@@ -190,7 +190,7 @@ credential нужно выбрать заново. В ноде
 3. Добавьте ровно одну строку: `key = portal_api_base_url`, `value =` публичный HTTPS URL
    портала без завершающего `/`.
 
-Так URL меняется один раз для всех трёх workflow. Ресторан workflow не выбирает: API сам
+Так URL меняется один раз для всех четырёх workflow. Ресторан workflow не выбирает: API сам
 разрешает `PORTAL_RESTAURANT_SLUG` в серверный `restaurant_id`.
 
 Для локальной проверки облачному n8n нужен временный **HTTP(S)-туннель к порту 3000
@@ -254,7 +254,6 @@ pnpm exec vitest run --project n8n
 | Где | Что |
 |---|---|
 | Data Table `key_value` | строка `portal_api_base_url` → публичный HTTPS URL портала без завершающего `/` |
-| `sub-operator-handoff` → нода **Config** | `operator_chat_id` вместо `REPLACE_WITH_OPERATOR_CHAT_ID` |
 | `Basilik Telegram - Orchestrator` → пять тулов | при переносе в другой инстанс выбрать соответствующие сабворкфлоу и заново проверить mapping входов |
 | `Basilik Telegram - Orchestrator` → **OpenRouter Chat Model** | модель, если `openai/gpt-4.1-mini` не устраивает |
 | оба workflow с Qdrant | имя коллекции, если оно не `basilik_info` |
@@ -298,7 +297,8 @@ Code-нода после HTTP Request только пропускает гото
   с пустым вводом: агент отвечает фразой о сбое. Отдельной ветки под них нет.
 - Брони из Telegram пишутся с `source = 'phone'`: значения `'telegram'` в
   `reservations_source_check` нет, а миграцию под этот канал не заводили.
-- Передача оператору ничего не пишет в `callback_requests` — только сообщение в Telegram.
-  Имя и телефон гостя туда не попадают: бот их не спрашивает и не знает.
+- Передача оператору пишет в `callback_requests` карточку с `source='telegram'`,
+  `category='other'` и стабильным `telegram_user_id`; она появляется в `/messages`.
+  Username и телефон гостя не передаются в Portal API.
 - OpenRouter и Qdrant Cloud — сервисы за пределами ЕС. Это осознанное отступление от
   правила `docs/PROJECT.md` §11, принятое владельцем для этого канала.

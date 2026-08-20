@@ -30,6 +30,8 @@ GRANT EXECUTE ON FUNCTION find_pickup_slots_local(uuid,jsonb,date,time,int),crea
 GRANT EXECUTE ON FUNCTION get_agent_runtime_settings(uuid) TO agent_app;
 REVOKE EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) FROM portal_app;
 GRANT EXECUTE ON FUNCTION create_callback_request(uuid,text,char,text,text) TO agent_app;
+-- Telegram handoff создаёт карточку только через Portal API.
+GRANT EXECUTE ON FUNCTION create_telegram_callback_request(uuid,text,char,text) TO portal_app;
 -- Ручное удаление одной карточки сообщения: общего DELETE на callback_requests нет.
 GRANT EXECUTE ON FUNCTION delete_callback_request(uuid,uuid) TO portal_app;
 -- Дневная бронь столика из портала (PROJECT.md §7.3): право только у portal_app.

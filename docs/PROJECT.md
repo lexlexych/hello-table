@@ -339,9 +339,10 @@ n8n.<домен>       → n8n:5678       (доступ только с IP вл�
 
 Telegram-бот работает во втором, облачном экземпляре n8n и в эту Docker-топологию не
 входит. Он не получает Postgres credential и не открывает TCP-туннель к базе: инструменты
-меню и бронирования вызывают `https://app.<домен>/api/integrations/n8n/*` с отдельным
+меню, бронирования и передачи оператору вызывают
+`https://app.<домен>/api/integrations/n8n/*` с отдельным
 Bearer-ключом, а Portal API уже выполняет разрешённую RPC в локальной сети сервера. Общий
-`portal_api_base_url` три сабворкфлоу читают из строки Data Table `key_value`.
+`portal_api_base_url` четыре сабворкфлоу читают из строки Data Table `key_value`.
 
 ### 3.2 Путь данных звонка
 
@@ -415,6 +416,11 @@ Telegram tool("create_reservation")
         → create_reservation_for_table() под ролью portal_app
         → перевод SQLSTATE и zod-валидация результата
    ← { ok: true, reservation_id, table_label, starts_at, ends_at }
+
+Telegram tool("handoff_to_operator")
+   → HTTPS Portal API (Bearer credential; question, language, telegram_user_id)
+        → create_telegram_callback_request() под ролью portal_app
+   ← { ok: true, callback_id }
 ```
 
 ⚠️ Ответ функции инструмента должен быть **строго типизированной структурой**, а не
@@ -436,7 +442,7 @@ Telegram tool("create_reservation")
   синхронизированный workflow JSON содержит только ссылки credentials (`id`, `name`), но не
   ключи, токены и другие секретные значения;
 - Portal API не принимает `restaurant_id`: ресторан определяется серверным
-  `PORTAL_RESTAURANT_SLUG`; `portal_app` получает точечный `EXECUTE` на три RPC API;
+  `PORTAL_RESTAURANT_SLUG`; `portal_app` получает точечный `EXECUTE` на четыре RPC API;
 - роль `n8n_app` остаётся только для self-hosted workflow в доверенной Docker-сети и не
   передаётся облачному Telegram-инстансу; у неё по-прежнему нет прав на таблицы.
 - Ответ RPC валидируется до передачи модели; значения запросов и ответов с PII не логируются.
@@ -723,7 +729,9 @@ create_pickup_order_local(restaurant, items jsonb, date, time, name, phone,
 
 create_callback_request(restaurant, phone, language, summary, category) → uuid
   -- голосовой путь: source=voice и caller_phone задаёт сама функция;
-  -- будущий Telegram-вход пишет source=telegram и telegram_user_id своей RPC
+
+create_telegram_callback_request(restaurant, telegram_user_id, language, summary) → uuid
+  -- Telegram-путь Portal API: source=telegram, caller_phone=NULL и category=other
 
 delete_callback_request(restaurant, callback) → bool
   -- ручное удаление одной карточки из портала; restaurant обязателен, чтобы запись
@@ -762,7 +770,8 @@ cancel_table_booking(restaurant, table, date) → int
 формуляров, третья обслуживает HTTP API облачного n8n, четвёртая — публичный сайт.
 `get_current_menu` разрешена `agent_app` и `portal_app`; `find_pickup_slots_local` и
 `create_pickup_order_local` — только `agent_app`; `create_callback_request` — `agent_app`
-и `n8n_app` для будущих каналов. `book_table_for_day`,
+и `n8n_app` для будущих каналов; `create_telegram_callback_request` — только
+`portal_app`. `book_table_for_day`,
 `cancel_table_booking` и `delete_callback_request` разрешены только `portal_app`.
 
 ⚠️ Уточнения, зафиксированные спекой 001:
@@ -789,7 +798,7 @@ website_app — EXECUTE только на find_available_tables и
               create_reservation_for_table, никаких прав на таблицы
 portal_app  — SELECT/INSERT/UPDATE на таблицы (портал редактирует меню и
               обрабатывает заказы), но брони создаёт тоже через функции;
-              EXECUTE трёх RPC машинного API облачного n8n;
+              EXECUTE четырёх RPC машинного API облачного n8n;
               DELETE выдан точечно и только на справочники
               restaurant_tables, menu_categories, menu_items
 ```
@@ -831,11 +840,11 @@ portal_app  — SELECT/INSERT/UPDATE на таблицы (портал реда�
 Сайт вызывает `find_available_tables` и `create_reservation_for_table` напрямую из своих
 серверных route handlers под ролью `website_app`; создание передаёт источник `website`.
 `request_callback` вызывает Postgres RPC напрямую под ролью `agent_app`. Добавленный
-Telegram-бот остаётся отдельным каналом: `search_menu`, `check_availability` и
-`create_reservation` идут из облачного n8n в Portal API по HTTPS, без доступа n8n к базе.
-Передача оператору пока отправляет только Telegram-сообщение и не сохраняет строку с
-`source=telegram` в общей очереди; это и внешнее уведомление остаются незавершённой частью
-итерации 8.
+Telegram-бот остаётся отдельным каналом: `search_menu`, `check_availability`,
+`create_reservation` и `handoff_to_operator` идут из облачного n8n в Portal API по HTTPS,
+без доступа n8n к базе. Передача оператору сохраняет строку с
+`source=telegram` и стабильным `telegram_user_id` в общей очереди `/messages`.
+Незавершённой частью итерации 8 остаётся отдельное внешнее уведомление о новых сообщениях.
 
 Любой фактический ответ о ресторане заземлён на три источника: системный промпт, правила
 конкретного ресторана и успешные результаты инструментов текущего разговора. Общие знания
@@ -1440,15 +1449,16 @@ TCP-туннель к базе. Ответ строго типизирован, 
                  создавались и не запускались; живой прогон сценария C на русском
                  остаётся за владельцем (docs/manual-tests.md)
 [~] Итерация 8   Обратный звонок: заземление ответов, резюме, сообщения в портале,
-                 будущие Telegram-вход и внешнее уведомление.
+                 Telegram-вход и внешнее уведомление.
                  Сделаны 20.08.2026: прямой request_callback → Postgres, общая модель
                  источника и контакта, страница /messages со статусами, удалением и бейджем новых,
                  запрет выдумывать сведения вне промпта, правил ресторана и инструментов.
                  Telegram-бот добавлен владельцем; его меню, поиск и создание брони
                  20.08.2026 переведены с прямого Postgres на HTTPS API портала с Bearer-
                  credential, общими zod-контрактами и тремя RPC под portal_app.
-                 НЕ сделаны: сохранение Telegram-передачи оператору в callback_requests
-                 и отдельное внешнее уведомление о новых сообщениях голосового канала.
+                 20.08.2026 Telegram-передача оператору также переведена на HTTPS API:
+                 четвёртая RPC сохраняет карточку с `source=telegram` в `/messages`.
+                 НЕ сделано: отдельное внешнее уведомление о новых сообщениях голосового канала.
 [~] Итерация 9   Портал: аутентификация, роли, дашборд, брони, заказы, коллбэки
                  — ЧАСТИЧНО 16.08.2026 (спека 004): Next.js 16.3.1, вход, две роли,
                  подписанная cookie, rate limit, двухслойная проверка роли.

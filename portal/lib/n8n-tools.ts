@@ -11,8 +11,11 @@ import {
   type MenuCategory,
   type N8nCheckAvailabilityRequest,
   type N8nCreateReservationRequest,
+  type N8nOperatorHandoffRequest,
   type N8nSearchMenuRequest,
+  type RequestCallbackResponse,
   type SearchMenuResponse,
+  requestCallbackResponseSchema,
   searchMenuResponseSchema,
 } from "@hello-table/contracts";
 import type postgres from "postgres";
@@ -20,6 +23,7 @@ import type postgres from "postgres";
 type AvailabilitySuccess = Extract<CheckAvailabilityResponse, { ok: true }>;
 type ReservationSuccess = Extract<CreateReservationResponse, { ok: true }>;
 type MenuSuccess = Extract<SearchMenuResponse, { ok: true }>;
+type CallbackSuccess = Extract<RequestCallbackResponse, { ok: true }>;
 
 interface ReservationRow {
   reservation_id: string;
@@ -151,4 +155,22 @@ export async function createN8nReservation(
         }
       : undefined,
   ) as ReservationSuccess;
+}
+
+export async function createN8nOperatorHandoff(
+  sql: postgres.Sql,
+  restaurantId: string,
+  input: N8nOperatorHandoffRequest,
+): Promise<CallbackSuccess> {
+  const rows = await sql<{ callback_id: string }[]>`
+    SELECT create_telegram_callback_request(
+      ${restaurantId}::uuid,
+      ${input.telegram_user_id}::text,
+      ${input.language}::char(2),
+      ${input.question}::text
+    ) AS callback_id`;
+  const row = rows[0];
+  return requestCallbackResponseSchema.parse(
+    row ? { ok: true, callback_id: row.callback_id } : undefined,
+  ) as CallbackSuccess;
 }

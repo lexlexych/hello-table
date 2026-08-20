@@ -107,7 +107,7 @@ Next.js 16 (App Router), Node 24. Реализованы тестовый зво
 
 ## Машинный API для облачного n8n
 
-Telegram-workflow не получает доступ к Postgres. Три серверных endpoint принимают только
+Telegram-workflow не получает доступ к Postgres. Четыре серверных endpoint принимают только
 HTTPS POST с `Authorization: Bearer <PORTAL_N8N_API_KEY>`:
 
 | Endpoint | RPC |
@@ -115,12 +115,13 @@ HTTPS POST с `Authorization: Bearer <PORTAL_N8N_API_KEY>`:
 | `/api/integrations/n8n/menu` | `get_current_menu` |
 | `/api/integrations/n8n/availability` | `find_available_tables` |
 | `/api/integrations/n8n/reservations` | `create_reservation_for_table` |
+| `/api/integrations/n8n/operator-handoff` | `create_telegram_callback_request` |
 
 Тело не содержит `restaurant_id`: сервер подставляет ресторан, найденный по
 `PORTAL_RESTAURANT_SLUG`. Вход валидируется общими схемами `packages/contracts`, ответы
 соответствуют `docs/tool-contracts.md`. Доменный отказ приходит как HTTP 200 с
 `{ ok: false, error }`, чтобы tool-workflow мог обработать его; неверный ключ даёт 401,
-неожиданная серверная ошибка — 500. Имя гостя и тело запроса не логируются.
+неожиданная серверная ошибка — 500. Имя гостя, Telegram ID и тела запросов не логируются.
 
 `proxy.ts` пропускает этот префикс без браузерной cookie только до route handler; каждый
 handler независимо проверяет API key. Публичным без авторизации маршрут не становится.

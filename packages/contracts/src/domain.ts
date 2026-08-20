@@ -88,6 +88,7 @@ export const DOMAIN_TOOL_ERRORS = [
   "phone_required",
   "invalid_category",
   "summary_too_long",
+  "telegram_user_id_required",
   "invalid_request",
 ] as const;
 export const domainToolErrorSchema = z.enum(DOMAIN_TOOL_ERRORS);
