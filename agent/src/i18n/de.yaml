@@ -30,3 +30,4 @@ tool_errors:
   phone_required: "Bitte nennen Sie mir eine Telefonnummer."
   invalid_category: "Entschuldigung, ich konnte Ihr Anliegen nicht einordnen. Worum geht es kurz gesagt?"
   summary_too_long: "Entschuldigung, ich fasse Ihr Anliegen noch einmal kürzer zusammen."
+  telegram_user_id_required: "Entschuldigung, die Telegram-Benutzer-ID fehlt."

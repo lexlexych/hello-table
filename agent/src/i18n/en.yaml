@@ -30,3 +30,4 @@ tool_errors:
   phone_required: "Please tell me a phone number."
   invalid_category: "Sorry, I could not categorise your request. What is it about, in short?"
   summary_too_long: "Sorry, let me summarise your request more briefly."
+  telegram_user_id_required: "Sorry, the Telegram user ID is missing."
