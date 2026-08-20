@@ -1,0 +1,127 @@
+{
+  "name": "Basilik Telegram - Sub: Operator handoff",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "question",
+              "type": "string"
+            },
+            {
+              "name": "language",
+              "type": "string"
+            },
+            {
+              "name": "telegram_user_id",
+              "type": "string"
+            },
+            {
+              "name": "telegram_username",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "b50000-0000-4000-8000-000000000001",
+      "name": "When Executed by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-600, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b50000-0000-4000-8000-000000000100",
+              "name": "operator_chat_id",
+              "value": "REPLACE_WITH_OPERATOR_CHAT_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b50000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-380, 0],
+      "notes": "Единственное место, где правится chat id оператора этого инстанса."
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.operator_chat_id }}",
+        "text": "=Вопрос от клиента, с которым бот не справился\n\nЯзык: {{ $json.language }}\nTelegram ID: {{ $json.telegram_user_id }}\nСвязаться: {{ $json.telegram_username ? '@' + $json.telegram_username : 'tg://user?id=' + $json.telegram_user_id }}\n\nВопрос:\n{{ $json.question }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b50000-0000-4000-8000-000000000003",
+      "name": "Notify Operator",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-160, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Имя и телефон гостя не передаются: бот их не спрашивает и не знает."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Агент должен честно знать, дошло сообщение или нет, чтобы не обещать клиенту\n// ответ, которого не будет.\nconst result = $input.first().json;\nconst delivered = Boolean(result && result.message_id);\n\nreturn [{ json: delivered ? { ok: true, delivered: true } : { ok: false, error: 'unreachable' } }];"
+      },
+      "id": "b50000-0000-4000-8000-000000000004",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 0]
+    }
+  ],
+  "connections": {
+    "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Notify Operator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Operator": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "tags": []
+}

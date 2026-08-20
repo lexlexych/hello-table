@@ -1,0 +1,122 @@
+{
+  "name": "Basilik Telegram - Sub: Menu",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "language",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "b10000-0000-4000-8000-000000000001",
+      "name": "When Executed by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-600, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b10000-0000-4000-8000-000000000100",
+              "name": "restaurant_id",
+              "value": "10000000-0000-0000-0000-000000000001",
+              "type": "string"
+            },
+            {
+              "id": "b10000-0000-4000-8000-000000000101",
+              "name": "language",
+              "value": "={{ ['de','ru','en'].includes($json.language) ? $json.language : 'de' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "b10000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-380, 0],
+      "notes": "Единственное место, где правится restaurant_id этого инстанса."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(\n  jsonb_agg(\n    jsonb_build_object('id', category_id, 'name', category_name, 'items', items)\n    ORDER BY category_sort_order, category_name\n  ),\n  '[]'::jsonb\n) AS categories\nFROM (\n  SELECT category_id,\n         category_name,\n         category_sort_order,\n         jsonb_agg(\n           jsonb_build_object(\n             'id',            item_id,\n             'name',          item_name,\n             'description',   item_description,\n             'price_cents',   item_price_cents,\n             'allergens',     COALESCE(to_jsonb(item_allergens), '[]'::jsonb),\n             'is_vegetarian', item_is_vegetarian,\n             'is_vegan',      item_is_vegan,\n             'weight_g',      item_weight_g,\n             'volume_ml',     item_volume_ml,\n             'kcal',          item_kcal,\n             'protein_g',     item_protein_g,\n             'fat_g',         item_fat_g,\n             'carbs_g',       item_carbs_g\n           ) ORDER BY item_name\n         ) AS items\n  FROM get_current_menu($1::uuid, $2::char(2))\n  GROUP BY category_id, category_name, category_sort_order\n) c;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [$json.restaurant_id, $json.language] }}"
+        }
+      },
+      "id": "b10000-0000-4000-8000-000000000003",
+      "name": "Get Current Menu",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-160, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Роль n8n_app; EXECUTE на get_current_menu выдан в db/roles.sql."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Каталог целиком собрала Postgres-функция. Здесь только форма ответа и код ошибки.\nconst CAST_ERRORS = ['22007', '22008', '22P02', '23514', 'invalid input syntax'];\nconst DOMAIN = [\n  ['45000', 'restaurant_not_found'],\n  ['45004', 'closed_at_requested_time'],\n  ['45005', 'party_too_large'],\n  ['45006', 'slot_in_past'],\n  ['45015', 'table_not_available'],\n  ['45016', 'table_already_booked'],\n];\n\nfunction toError(result) {\n  const serialized = JSON.stringify(result);\n  for (const [state, code] of DOMAIN) {\n    if (serialized.includes(state) || serialized.includes(code)) {\n      return { ok: false, error: code };\n    }\n  }\n  for (const marker of CAST_ERRORS) {\n    if (serialized.includes(marker)) return { ok: false, error: 'invalid_request' };\n  }\n  return { ok: false, error: 'unreachable' };\n}\n\nconst result = $input.first().json;\n\nif (Array.isArray(result.categories)) {\n  return [{ json: { ok: true, categories: result.categories } }];\n}\n\nreturn [{ json: toError(result) }];"
+      },
+      "id": "b10000-0000-4000-8000-000000000004",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 0]
+    }
+  ],
+  "connections": {
+    "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Get Current Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Menu": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -1,0 +1,108 @@
+{
+  "name": "Basilik Telegram - Sub: Restaurant info (RAG)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "question",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "b40000-0000-4000-8000-000000000001",
+      "name": "When Executed by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-600, 0]
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "basilik_info",
+          "mode": "id"
+        },
+        "prompt": "={{ $json.question }}",
+        "topK": 4,
+        "options": {}
+      },
+      "id": "b40000-0000-4000-8000-000000000002",
+      "name": "Qdrant Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [-360, 0],
+      "notes": "Коллекцию basilik_info наполняет workflow ingest-restaurant-info."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Сабворкфлоу возвращает найденные фрагменты, а не готовый ответ: формулировку\n// выбирает агент-оркестратор на языке клиента. Вторая LLM тут только удорожала бы\n// вызов и спорила бы с оркестратором о словах.\nconst passages = [];\n\nfor (const item of $input.all()) {\n  const doc = item.json && item.json.document ? item.json.document : item.json;\n  const text = doc && doc.pageContent;\n  if (typeof text === 'string' && text.trim().length > 0) {\n    passages.push(text.trim());\n  }\n}\n\nreturn [{ json: { ok: true, found: passages.length > 0, passages } }];"
+      },
+      "id": "b40000-0000-4000-8000-000000000003",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-120, 0]
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "b40000-0000-4000-8000-000000000004",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [-280, 200],
+      "notes": "Модель обязана совпадать в обоих workflow с Qdrant, иначе поиск не работает."
+    }
+  ],
+  "connections": {
+    "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "tags": []
+}

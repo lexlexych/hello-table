@@ -1,0 +1,124 @@
+{
+  "name": "Basilik Telegram - Sub: Check availability",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "date",
+              "type": "string"
+            },
+            {
+              "name": "time",
+              "type": "string"
+            },
+            {
+              "name": "party_size",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "b20000-0000-4000-8000-000000000001",
+      "name": "When Executed by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-600, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b20000-0000-4000-8000-000000000100",
+              "name": "restaurant_id",
+              "value": "10000000-0000-0000-0000-000000000001",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b20000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-380, 0],
+      "notes": "Единственное место, где правится restaurant_id этого инстанса."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(\n  jsonb_agg(\n    jsonb_build_object(\n      'table_id', table_id,\n      'label',    table_label,\n      'seats',    table_seats,\n      'zone',     table_zone\n    ) ORDER BY table_seats, table_label\n  ),\n  '[]'::jsonb\n) AS tables\nFROM find_available_tables($1::uuid, $2::date, $3::time, $4::int);",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [$json.restaurant_id, $json.date, $json.time, $json.party_size] }}"
+        }
+      },
+      "id": "b20000-0000-4000-8000-000000000003",
+      "name": "Find Available Tables",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-160, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Мусор от LLM отсекают приведения типов в SQL: дату, время и число проверяет база."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Пустой tables — это не ошибка, а «на это время свободных столиков нет»: так же\n// функция отвечает на закрытый день, прошедшее время и слишком большую компанию.\nconst CAST_ERRORS = ['22007', '22008', '22P02', '23514', 'invalid input syntax'];\nconst DOMAIN = [\n  ['45000', 'restaurant_not_found'],\n  ['45004', 'closed_at_requested_time'],\n  ['45005', 'party_too_large'],\n  ['45006', 'slot_in_past'],\n  ['45015', 'table_not_available'],\n  ['45016', 'table_already_booked'],\n];\n\nfunction toError(result) {\n  const serialized = JSON.stringify(result);\n  for (const [state, code] of DOMAIN) {\n    if (serialized.includes(state) || serialized.includes(code)) {\n      return { ok: false, error: code };\n    }\n  }\n  for (const marker of CAST_ERRORS) {\n    if (serialized.includes(marker)) return { ok: false, error: 'invalid_request' };\n  }\n  return { ok: false, error: 'unreachable' };\n}\n\nconst result = $input.first().json;\n\nif (Array.isArray(result.tables)) {\n  return [{ json: { ok: true, tables: result.tables } }];\n}\n\nreturn [{ json: toError(result) }];"
+      },
+      "id": "b20000-0000-4000-8000-000000000004",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 0]
+    }
+  ],
+  "connections": {
+    "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Find Available Tables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Available Tables": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "tags": []
+}

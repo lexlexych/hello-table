@@ -1,0 +1,148 @@
+{
+  "name": "Basilik Telegram - Sub: Create reservation",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "table_id",
+              "type": "string"
+            },
+            {
+              "name": "date",
+              "type": "string"
+            },
+            {
+              "name": "time",
+              "type": "string"
+            },
+            {
+              "name": "party_size",
+              "type": "number"
+            },
+            {
+              "name": "guest_name",
+              "type": "string"
+            },
+            {
+              "name": "language",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "b30000-0000-4000-8000-000000000001",
+      "name": "When Executed by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-600, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b30000-0000-4000-8000-000000000100",
+              "name": "restaurant_id",
+              "value": "10000000-0000-0000-0000-000000000001",
+              "type": "string"
+            },
+            {
+              "id": "b30000-0000-4000-8000-000000000101",
+              "name": "language",
+              "value": "={{ ['de','ru','en'].includes($json.language) ? $json.language : 'de' }}",
+              "type": "string"
+            },
+            {
+              "id": "b30000-0000-4000-8000-000000000102",
+              "name": "guest_name",
+              "value": "={{ ($json.guest_name || '').trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b30000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-380, 0],
+      "notes": "Единственное место, где правится restaurant_id этого инстанса."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT reservation_id,\n       booked_table_label,\n       confirmed_starts_at,\n       confirmed_ends_at\nFROM create_reservation_for_table(\n  $1::uuid,\n  $2::uuid,\n  $3::date,\n  $4::time,\n  $5::int,\n  $6::text,\n  NULL::text,\n  $7::char(2),\n  'phone'\n);\n-- $2 — столик из ответа check_availability, выбирает агент, а не гость.\n-- guest_phone всегда NULL: в Telegram номер не спрашиваем.\n-- source = 'phone': значения 'telegram' в reservations_source_check нет.",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [$json.restaurant_id, $json.table_id, $json.date, $json.time, $json.party_size, $json.guest_name, $json.language] }}"
+        }
+      },
+      "id": "b30000-0000-4000-8000-000000000003",
+      "name": "Create Reservation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-160, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Вся проверка брони — часы работы, вместимость, пересечения — внутри Postgres-функции."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Перевод прикладных SQLSTATE в перечислимые коды контракта (db/README.md).\n// Свободного текста в ответе нет: формулировку выбирает агент-оркестратор.\nconst CAST_ERRORS = ['22007', '22008', '22P02', '23514', 'invalid input syntax'];\nconst DOMAIN = [\n  ['45000', 'restaurant_not_found'],\n  ['45004', 'closed_at_requested_time'],\n  ['45005', 'party_too_large'],\n  ['45006', 'slot_in_past'],\n  ['45015', 'table_not_available'],\n  ['45016', 'table_already_booked'],\n];\n\nfunction toError(result) {\n  const serialized = JSON.stringify(result);\n  for (const [state, code] of DOMAIN) {\n    if (serialized.includes(state) || serialized.includes(code)) {\n      return { ok: false, error: code };\n    }\n  }\n  for (const marker of CAST_ERRORS) {\n    if (serialized.includes(marker)) return { ok: false, error: 'invalid_request' };\n  }\n  return { ok: false, error: 'unreachable' };\n}\n\nconst result = $input.first().json;\n\nif (result.reservation_id) {\n  return [{\n    json: {\n      ok: true,\n      reservation_id: result.reservation_id,\n      table_label: result.booked_table_label,\n      starts_at: result.confirmed_starts_at,\n      ends_at: result.confirmed_ends_at,\n    },\n  }];\n}\n\nreturn [{ json: toError(result) }];"
+      },
+      "id": "b30000-0000-4000-8000-000000000004",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [60, 0]
+    }
+  ],
+  "connections": {
+    "When Executed by Agent": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Create Reservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Reservation": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "tags": []
+}
