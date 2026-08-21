@@ -25,6 +25,8 @@ import { describe, expect, it } from "vitest";
 const MAX_TYPE_VERSION: Record<string, number> = {
   "n8n-nodes-base.code": 2,
   "n8n-nodes-base.dataTable": 1.1,
+  "n8n-nodes-base.evaluation": 4.8,
+  "n8n-nodes-base.evaluationTrigger": 4.7,
   "n8n-nodes-base.executeWorkflowTrigger": 1.2,
   "n8n-nodes-base.extractFromFile": 1.1,
   "n8n-nodes-base.formTrigger": 2.6,

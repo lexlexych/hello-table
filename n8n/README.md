@@ -149,7 +149,7 @@ Portal API по HTTPS, а уже портал выполняет разрешё�
 
 | Файл | Роль |
 |---|---|
-| `Basilik Telegram - Orchestrator.json` | Главный workflow: Telegram-триггер, транскрибация голосовых, агент-оркестратор, память, пять инструментов |
+| `Basilik Telegram - Orchestrator.json` | Главный workflow: Telegram-триггер, транскрибация голосовых, агент-оркестратор, память, пять инструментов и evaluation-ветка с LLM-судьёй |
 | `Basilik Telegram - Sub_ Restaurant info (RAG).json` | Поиск справки о ресторане в Qdrant |
 | `Basilik Telegram - Sub_ Menu.json` | Полный каталог меню через Portal API → `get_current_menu` |
 | `Basilik Telegram - Sub_ Check availability.json` | Свободные столики через Portal API → `find_available_tables` |
@@ -256,6 +256,9 @@ pnpm exec vitest run --project n8n
 | Data Table `key_value` | строка `portal_api_base_url` → публичный HTTPS URL портала без завершающего `/` |
 | `Basilik Telegram - Orchestrator` → пять тулов | при переносе в другой инстанс выбрать соответствующие сабворкфлоу и заново проверить mapping входов |
 | `Basilik Telegram - Orchestrator` → **OpenRouter Chat Model** | модель, если `openai/gpt-4.1-mini` не устраивает |
+| `Basilik Telegram - Orchestrator` → **When fetching a dataset row**, **Write Evaluation Results** | выбрать Data Table с evaluation-набором; экспорт использует имя-заглушку `basilik_telegram_evaluations` |
+| Evaluation Data Table | входные колонки `input`, `expected_output`; workflow добавляет или обновляет `actual_output`, `correctness_score` |
+| `Basilik Telegram - Orchestrator` → **Evaluation Judge Model** | при необходимости выбрать другую OpenRouter-модель судьи |
 | оба workflow с Qdrant | имя коллекции, если оно не `basilik_info` |
 
 Общий URL Portal API хранится в Data Table; локальные константы остальных workflow остаются

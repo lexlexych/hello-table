@@ -104,3 +104,19 @@ pnpm portal:dev
 Портал открывается на **http://localhost:3000** — именно `localhost`: микрофон браузер
 отдаёт только в защищённом контексте. Транскрипт показывается на экране и нигде не
 сохраняется. Пошаговая проверка — [docs/manual-tests.md](docs/manual-tests.md).
+
+## Локальный production-режим
+
+Для запуска без dev-сервера используйте отдельные команды. `portal:prod` и `website:prod`
+сначала собирают приложение, затем запускают готовую Next.js-сборку; после изменений кода
+команду нужно выполнить снова. Агент не требует отдельной сборки: `agent:prod` запускает его
+в режиме `start`.
+
+```powershell
+pnpm portal:prod   # http://localhost:3000
+pnpm website:prod  # http://localhost:3001
+pnpm agent:prod
+```
+
+Локальный production-режим не меняет значения в `.env`: в частности,
+`PORTAL_COOKIE_SECURE=false` остаётся корректным для `http://localhost`.

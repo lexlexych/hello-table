@@ -193,7 +193,7 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "sessionKey": "={{ $('When fetching a dataset row').isExecuted ? 'evaluation-' + $('When fetching a dataset row').first().json.row_id : $('Telegram Trigger').first().json.message.chat.id }}",
         "contextWindowLength": 20
       },
       "id": "27bd4207-02d3-4ef7-9f0a-4267f1fe2cfe",
@@ -579,6 +579,155 @@
           "name": "Telegram account 3"
         }
       }
+    },
+    {
+      "parameters": {
+        "source": "dataTable",
+        "dataTableId": {
+          "__rl": true,
+          "value": "basilik_telegram_evaluations",
+          "mode": "list",
+          "cachedResultName": "basilik_telegram_evaluations"
+        },
+        "limitRows": false
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "When fetching a dataset row",
+      "type": "n8n-nodes-base.evaluationTrigger",
+      "typeVersion": 4.7,
+      "position": [
+        -1072,
+        816
+      ],
+      "notes": "Data Table и её ID выберите в UI. Ожидаемые колонки набора: input и expected_output."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1000000-0000-4000-8000-000000000002",
+              "name": "chat_input",
+              "value": "={{ $json.input }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Evaluation Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -800,
+        816
+      ],
+      "notes": "Преобразует колонку input из evaluation Data Table в общий вход агента chat_input."
+    },
+    {
+      "parameters": {
+        "operation": "checkIfEvaluating"
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Evaluation",
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        432,
+        320
+      ],
+      "notes": "Evaluation идёт к судье; Normal — в обычный Telegram-ответ."
+    },
+    {
+      "parameters": {
+        "operation": "setMetrics",
+        "metric": "correctness",
+        "expectedAnswer": "={{ $('When fetching a dataset row').first().json.expected_output }}",
+        "actualAnswer": "={{ $('Restaurant Agent').first().json.output }}",
+        "options": {
+          "metricName": "correctness_score"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Evaluate Answer",
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        672,
+        816
+      ],
+      "notes": "LLM-судья сравнивает actual output с expected_output и выставляет correctness_score от 1 до 5."
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-5.6-terra",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Evaluation Judge Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        672,
+        1040
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "R5MYn4JoZDI8oAWQ",
+          "name": "OpenRouter account 7"
+        }
+      },
+      "notes": "Отдельный model-узел судьи; credential и модель можно заменить в UI независимо от агента."
+    },
+    {
+      "parameters": {
+        "operation": "setOutputs",
+        "source": "dataTable",
+        "dataTableId": {
+          "__rl": true,
+          "value": "basilik_telegram_evaluations",
+          "mode": "list",
+          "cachedResultName": "basilik_telegram_evaluations"
+        },
+        "outputs": {
+          "values": [
+            {
+              "outputName": "actual_output",
+              "outputValue": "={{ $('Restaurant Agent').first().json.output }}"
+            },
+            {
+              "outputName": "correctness_score",
+              "outputValue": "={{ $json.correctness_score }}"
+            }
+          ]
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Write Evaluation Results",
+      "type": "n8n-nodes-base.evaluation",
+      "typeVersion": 4.8,
+      "position": [
+        944,
+        816
+      ],
+      "notes": "Пишет actual_output и correctness_score в ту же строку Data Table; отсутствующие колонки n8n создаст сам."
+    },
+    {
+      "parameters": {
+        "content": "## Basilik Telegram — Orchestrator\n\nГлавный workflow Telegram-бота ресторана.\n\n**Обычный путь**\n1. `Telegram Trigger` принимает текст или voice.\n2. `Voice Message?` разводит вход: текст сразу становится `chat_input`, voice скачивается, переводится в base64 и транскрибируется через OpenRouter.\n3. `Restaurant Agent` отвечает на языке гостя, хранит отдельную память по chat ID и использует пять tool-workflow: справка RAG, меню, свободные столики, создание брони и передача оператору.\n4. `Evaluation` отправляет обычное выполнение в `Send Reply`; error-output агента идёт в `Send Failure Notice`.\n\n**Evaluation-путь**\n1. `When fetching a dataset row` читает Data Table `basilik_telegram_evaluations`. Ожидаемые поля: `input`, `expected_output`.\n2. `Evaluation Input` подаёт `input` в тот же Restaurant Agent.\n3. `Evaluate Answer` через отдельную `Evaluation Judge Model` сравнивает ответ агента с `expected_output` и ставит `correctness_score` от 1 до 5.\n4. `Write Evaluation Results` записывает в исходную строку `actual_output` и `correctness_score`.\n\nПосле импорта выберите реальную Data Table в trigger и output-ноде. Для evaluation используется отдельный ключ памяти `evaluation-<row_id>`, поэтому тестовые диалоги не смешиваются с Telegram-чатами. Учтите: tools остаются настоящими; строки, способные вызвать бронирование или handoff, могут создать реальные данные.",
+        "height": 620,
+        "width": 1120,
+        "color": 5
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "About this workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -480
+      ]
     }
   ],
   "pinData": {
@@ -697,7 +846,7 @@
       "main": [
         [
           {
-            "node": "Send Reply",
+            "node": "Evaluation",
             "type": "main",
             "index": 0
           }
@@ -798,6 +947,68 @@
           }
         ]
       ]
+    },
+    "When fetching a dataset row": {
+      "main": [
+        [
+          {
+            "node": "Evaluation Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation Input": {
+      "main": [
+        [
+          {
+            "node": "Restaurant Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Answer": {
+      "main": [
+        [
+          {
+            "node": "Write Evaluation Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation Judge Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Evaluate Answer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -806,7 +1017,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "9c80e8ec-010b-4895-8d67-b2af70cd282d",
+  "versionId": "a1000000-0000-4000-8000-000000000009",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "d04d24a3159cbe7521c1f2ff8e12b2e84d7ee794d1b9f7da64626049dcd0899e"
