@@ -75,15 +75,15 @@ describe("create_reservation_for_table", () => {
     expect(saved?.source).toBe("test");
   });
 
-  it("длительность брони равна slot_minutes ресторана", async () => {
+  it("бронирует от выбранного времени до местной полуночи", async () => {
     const day = await localDay(31);
     const [row] = await book(sql, tableFour, day, "19:00");
-    const booked = required(row, "бронь");
-    const minutes =
-      (booked.confirmed_ends_at.getTime() -
-        booked.confirmed_starts_at.getTime()) /
-      60_000;
-    expect(minutes).toBe(90);
+    const [localEnd] = await sql<{ correct_day: boolean; local_time: string }[]>`
+      SELECT ((${required(row, "бронь").confirmed_ends_at}::timestamptz
+               AT TIME ZONE ${TZ})::date = ${day}::date + 1) AS correct_day,
+             ((${required(row, "бронь").confirmed_ends_at}::timestamptz
+               AT TIME ZONE ${TZ})::time)::text AS local_time`;
+    expect(localEnd).toEqual({ correct_day: true, local_time: "00:00:00" });
   });
 
   it("время трактуется как местное для ресторана", async () => {
@@ -103,10 +103,9 @@ describe("create_reservation_for_table", () => {
     });
   });
 
-  it("буфер уборки тоже защищает столик", async () => {
+  it("после начала брони столик до конца дня недоступен", async () => {
     const day = await localDay(34);
     await book(sql, tableFour, day, "18:00");
-    // Бронь 18:00–19:30, буфер 15 минут: попытка на 19:40 ещё пересекается.
     await expect(book(sql, tableFour, day, "19:40")).rejects.toMatchObject({
       code: "45016",
     });

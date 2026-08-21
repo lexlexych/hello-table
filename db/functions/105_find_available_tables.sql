@@ -1,4 +1,4 @@
--- Свободные столики на КОНКРЕТНОЕ время — вход инструмента check_availability.
+-- Свободные столики на КОНКРЕТНОЕ время.
 --
 -- Отличие от find_available_slots: та функция отвечает на вопрос «когда можно прийти»
 -- и отдаёт по одному, самому маленькому подходящему столику на каждое время. Здесь
@@ -15,6 +15,7 @@ DECLARE
   r        restaurants%ROWTYPE;
   v_starts timestamptz;
   v_ends   timestamptz;
+  v_service_ends timestamptz;
 BEGIN
   SELECT * INTO r FROM restaurants WHERE id = p_restaurant AND is_active;
   IF NOT FOUND THEN RAISE EXCEPTION 'restaurant_not_found' USING ERRCODE = '45000'; END IF;
@@ -25,10 +26,13 @@ BEGIN
   IF p_party_size < 1 OR p_party_size > r.max_party_size THEN RETURN; END IF;
 
   v_starts := ((p_date + p_time)::timestamp) AT TIME ZONE r.timezone;
-  v_ends   := v_starts + make_interval(mins => r.slot_minutes);
+  v_service_ends := v_starts + make_interval(mins => r.slot_minutes);
+  v_ends := ((p_date + 1)::timestamp) AT TIME ZONE r.timezone;
 
   IF v_starts <= now() THEN RETURN; END IF;
-  IF NOT is_open_between(p_restaurant, v_starts, v_ends) THEN RETURN; END IF;
+  -- Время прихода и обычная длительность посадки должны помещаться в часы работы,
+  -- хотя сама бронь остаётся активной до полуночи.
+  IF NOT is_open_between(p_restaurant, v_starts, v_service_ends) THEN RETURN; END IF;
 
   RETURN QUERY
   SELECT t.id, t.label, t.seats, t.zone
@@ -36,15 +40,17 @@ BEGIN
   WHERE t.restaurant_id = p_restaurant
     AND t.is_active
     AND t.seats >= p_party_size
-    -- Тот же буфер с обеих сторон, что и в create_reservation_atomic: иначе поиск
-    -- показал бы столик, который бронирование затем отвергнет.
+    -- Все брони действуют до полуночи; buffer_minutes не применяется, иначе занятость
+    -- выехала бы в следующий день.
     AND NOT EXISTS (
       SELECT 1 FROM reservations res
       WHERE res.table_id = t.id
         AND res.status IN ('confirmed','seated')
-        AND tstzrange(res.starts_at - make_interval(mins => r.buffer_minutes),
-                      res.ends_at   + make_interval(mins => r.buffer_minutes))
-            && tstzrange(v_starts, v_ends)
+        AND tstzrange(
+              res.starts_at,
+              ((((res.starts_at AT TIME ZONE r.timezone)::date + 1)::timestamp)
+               AT TIME ZONE r.timezone)
+            ) && tstzrange(v_starts, v_ends)
     )
   ORDER BY t.seats, t.label;   -- сначала самый компактный подходящий столик
 END $$;

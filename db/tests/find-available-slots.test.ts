@@ -121,7 +121,7 @@ describe("find_available_slots", () => {
     expect([...hours]).not.toContain(16);
   });
 
-  it("занятый столик исключается вместе с буфером", async () => {
+  it("после бронирования столик исключается до конца дня", async () => {
     const solo = await createRestaurant(sql, "busy");
     created.push(solo);
     await openAllWeek(sql, solo);
@@ -135,12 +135,7 @@ describe("find_available_slots", () => {
               ${booked}::timestamptz, 2, 'A', '+49', 'de', 'test')`;
 
     const after = await slots(solo, date, 2, undefined, 100);
-    expect(after.map((r) => r.slot_time.getTime())).not.toContain(
-      booked.getTime(),
-    );
-    // 90 минут брони + 15 буфера с каждой стороны → соседние слоты тоже заняты
-    const stillFree = after.map((r) => r.slot_time.getTime());
-    expect(stillFree).not.toContain(booked.getTime() + 30 * 60_000);
+    expect(after).toHaveLength(0);
   });
 
   it("отдаёт restaurant_not_found для неактивного ресторана", async () => {

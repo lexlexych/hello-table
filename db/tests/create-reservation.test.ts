@@ -45,9 +45,10 @@ describe("create_reservation_atomic", () => {
     expect(row).toBeDefined();
     expect(row?.assigned_table_label).toBe("T1"); // наименьший подходящий
     expect(new Date(row?.confirmed_starts_at).getTime()).toBe(slot.getTime());
-    // slot_minutes = 90 по умолчанию
-    expect(new Date(row?.confirmed_ends_at).getTime() - slot.getTime()).toBe(
-      90 * 60_000,
+    const end = new Date(row?.confirmed_ends_at);
+    expect(end.getUTCHours()).toBe(0);
+    expect(end.toISOString().slice(0, 10)).toBe(
+      new Date(slot.getTime() + 24 * 60 * 60_000).toISOString().slice(0, 10),
     );
   });
 
@@ -102,8 +103,7 @@ describe("create_reservation_atomic", () => {
     expect(first?.assigned_table_label).not.toBe(second?.assigned_table_label);
   });
 
-  it("буфер между бронями соблюдается", async () => {
-    // buffer_minutes = 15, slot_minutes = 90 → занят интервал 90 + 15 с каждой стороны.
+  it("столик остаётся занят до конца дня и освобождается на следующий", async () => {
     // Ресторан с единственным столиком, чтобы альтернативы не было.
     const solo = await createRestaurant(sql, "buf");
     await openAllWeek(sql, solo);
@@ -111,17 +111,19 @@ describe("create_reservation_atomic", () => {
     const base = futureAt(9, 12);
     await sql`SELECT * FROM create_reservation_atomic(${solo}::uuid, ${base}::timestamptz,
               2, 'A', '+49', 'de', 'test')`;
-    // +100 минут: бронь закончилась в +90, но буфер 15 ещё держит слот
     const tooSoon = new Date(base.getTime() + 100 * 60_000);
     await expect(
       sql`SELECT * FROM create_reservation_atomic(${solo}::uuid, ${tooSoon}::timestamptz,
           2, 'B', '+49', 'de', 'test')`,
     ).rejects.toMatchObject({ code: "45001" });
-    // +150 минут: за пределами буфера, должно пройти
     const late = new Date(base.getTime() + 150 * 60_000);
-    const [ok] =
-      await sql`SELECT * FROM create_reservation_atomic(${solo}::uuid,
-                           ${late}::timestamptz, 2, 'C', '+49', 'de', 'test')`;
+    await expect(
+      sql`SELECT * FROM create_reservation_atomic(${solo}::uuid,
+          ${late}::timestamptz, 2, 'C', '+49', 'de', 'test')`,
+    ).rejects.toMatchObject({ code: "45001" });
+    const nextDay = new Date(base.getTime() + 24 * 60 * 60_000);
+    const [ok] = await sql`SELECT * FROM create_reservation_atomic(${solo}::uuid,
+      ${nextDay}::timestamptz, 2, 'D', '+49', 'de', 'test')`;
     expect(ok?.reservation_id).toBeDefined();
     await dropRestaurant(sql, solo);
   });

@@ -46,10 +46,13 @@ not 23503.
 
 ## Portal day bookings
 
-`book_table_for_day` and `cancel_table_booking` back the `/tables` screen. Unlike
-`create_reservation_atomic`, which picks a table for a party and books one `slot_minutes`
-window, they book a **caller-chosen** table from a given local time until local midnight of
-the next day. Rows land in `reservations` so the voice agent sees the table as taken.
+`book_table_for_day` and `cancel_table_booking` back the `/tables` screen. Every reservation
+channel now books from the selected local time until local midnight of the next day;
+`create_reservation_atomic` differs only by choosing the table automatically, while
+`book_table_for_day` receives a caller-chosen table. `slot_minutes` is retained to ensure the
+arrival time fits a normal seating inside opening hours. `buffer_minutes` is not added to an
+end-of-day reservation because that would block the next calendar day. Rows land in
+`reservations` so every channel sees the same occupancy.
 `max_party_size` is deliberately not enforced there: it caps phone bookings, and the table
 is chosen by a human. Only `portal_app` holds `EXECUTE`.
 

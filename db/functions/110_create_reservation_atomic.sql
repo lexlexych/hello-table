@@ -12,6 +12,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   r      restaurants%ROWTYPE;
   v_ends timestamptz;
+  v_service_ends timestamptz;
   cand   record;
   v_id   uuid;
 BEGIN
@@ -24,9 +25,13 @@ BEGIN
     RAISE EXCEPTION 'slot_in_past' USING ERRCODE = '45006';
   END IF;
 
-  v_ends := p_starts_at + make_interval(mins => r.slot_minutes);
+  v_service_ends := p_starts_at + make_interval(mins => r.slot_minutes);
+  v_ends := ((((p_starts_at AT TIME ZONE r.timezone)::date + 1)::timestamp)
+             AT TIME ZONE r.timezone);
 
-  IF NOT is_open_between(p_restaurant, p_starts_at, v_ends) THEN
+  -- Время прихода должно допускать обычную посадку slot_minutes в часы работы,
+  -- но сама созданная бронь остаётся активной до местной полуночи.
+  IF NOT is_open_between(p_restaurant, p_starts_at, v_service_ends) THEN
     RAISE EXCEPTION 'closed_at_requested_time' USING ERRCODE = '45004';
   END IF;
 
@@ -47,9 +52,11 @@ BEGIN
       SELECT 1 FROM reservations res
       WHERE res.table_id = cand.id
         AND res.status IN ('confirmed','seated')
-        AND tstzrange(res.starts_at - make_interval(mins => r.buffer_minutes),
-                      res.ends_at   + make_interval(mins => r.buffer_minutes))
-            && tstzrange(p_starts_at, v_ends)
+        AND tstzrange(
+              res.starts_at,
+              ((((res.starts_at AT TIME ZONE r.timezone)::date + 1)::timestamp)
+               AT TIME ZONE r.timezone)
+            ) && tstzrange(p_starts_at, v_ends)
     ) THEN
       INSERT INTO reservations (restaurant_id, table_id, guest_name, guest_phone, party_size,
                                 starts_at, ends_at, status, source, language)

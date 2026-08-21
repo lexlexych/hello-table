@@ -574,7 +574,8 @@ restaurants
   voice_mode text default 'pipeline',      -- pipeline | realtime; только новые звонки
   phone_e164, address, default_language char(2) default 'de',
   enabled_languages char(2)[] default '{de,ru,en}',
-  slot_minutes int default 90, buffer_minutes int default 15,
+  slot_minutes int default 90,              -- проверка, что время прихода помещается в часы работы
+  buffer_minutes int default 15,            -- legacy-настройка; для броней до полуночи не применяется
   booking_step_minutes int default 15,     -- шаг сетки времён начала брони
   max_party_size int default 8,
   pickup_lead_minutes int default 30,      -- минимальное время до готовности
@@ -669,12 +670,14 @@ create_reservation_atomic(restaurant, starts_at, party_size, name, phone,
   → (reservation_id uuid, assigned_table_id uuid, assigned_table_label text,
      confirmed_starts_at timestamptz, confirmed_ends_at timestamptz)
   |  RAISE 'no_table_available' | 'closed_at_requested_time' | 'party_too_large'
+  -- автоматически выбирает столик; confirmed_ends_at = местная полночь следующего дня
 
 find_available_tables(restaurant, date, time, party_size)
   → (table_id uuid, table_label text, table_seats int, table_zone text)
   -- ВСЕ свободные столики на конкретное время, вместе с зоной: по ней агент
   -- спрашивает «зал или терраса». find_available_slots для этого не годится —
   -- он отвечает на вопрос «когда прийти» и отдаёт по одному столику на время
+  -- доступность проверяется от названного времени до местной полуночи
 
 create_reservation_for_table(restaurant, table, date, time, party_size, name,
                              phone, language, source)
@@ -685,7 +688,8 @@ create_reservation_for_table(restaurant, table, date, time, party_size, name,
   -- бронь конкретного столика, который агент взял первым из упорядоченного ответа
   -- поиска после выбора зоны гостем; RPC сама столик не подбирает. Дата и время
   -- раздельно, а не timestamptz: вызывающая роль не читает таблицы и не может
-  -- получить часовой пояс ресторана; преобразование делает функция
+  -- получить часовой пояс ресторана; преобразование делает функция. ends_at всегда
+  -- равен местной полуночи следующего дня независимо от source
 
 cancel_reservation_by_phone(restaurant, phone, date) → int
 
@@ -755,9 +759,9 @@ cancel_table_booking(restaurant, table, date) → int
 вместимость слота и номер заказа остаются в обёрнутых функциях.
 
 ⚠️ `book_table_for_day` и `cancel_table_booking` — дневная бронь из портала (§7.3), а не
-инструмент агента.
-Отличие от `create_reservation_atomic`: столик задаёт человек, а не подбор, и бронь
-занимает столик **от указанного времени до местной полуночи следующего дня**. Строки
+инструмент агента. Столик там задаёт человек, а не автоматический подбор. Длительность
+у всех каналов едина: бронь занимает столик **от указанного времени до местной полуночи
+следующего дня**. Строки
 пишутся в ту же таблицу `reservations`, иначе агент не увидел бы занятость и предложил
 бы этот столик гостю по телефону. `max_party_size` там намеренно не проверяется — это
 лимит телефонных броней, а столик выбирает человек. `EXECUTE` выдан только `portal_app`;
@@ -863,8 +867,9 @@ Telegram-бот остаётся отдельным каналом: `search_menu
 отсутствии предпочтения — первый столик всего ответа. Поэтому `create_reservation` принимает
 `table_id` из предыдущего ответа, но сама RPC столик не подбирает. Столики меньше компании
 исключаются; столики ровно на нужное число гостей идут первыми, затем более вместительные.
-Занятость означает пересечение запрошенного временного слота с подтверждённой бронью и её
-буфером, а не любую бронь этого столика в тот же календарный день.
+Занятость означает пересечение диапазона от запрошенного времени до местной полуночи с
+подтверждённой бронью. Поэтому на одном столике возможна только одна активная бронь в день;
+`buffer_minutes` к такому диапазону не добавляется.
 
 Для телефонной брони агент собирает день, время, количество гостей и имя. Количество он
 уточняет коротким вопросом без оговорок о составе группы. Номер телефона агент не запрашивает

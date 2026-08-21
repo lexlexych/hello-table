@@ -84,23 +84,22 @@ describe("find_available_tables", () => {
     expect(rows[0]?.table_seats).toBe(2);
   });
 
-  it("не показывает занятый столик и учитывает буфер уборки", async () => {
+  it("не показывает столик, занятый в любой момент этого дня", async () => {
     const day = await localDay(4);
     await sql`SELECT * FROM create_reservation_for_table(
       ${restaurantId}::uuid, ${terrace}::uuid, ${day}::date, '19:00'::time,
       4::int, 'Belegt', NULL, 'de'::char(2), 'test')`;
 
+    // Новая бронь в 16:00 тоже шла бы до полуночи и пересеклась бы с бронью на 19:00.
+    const before = await find(day, "16:00", 4);
+    expect(before.map((row) => row.table_id)).not.toContain(terrace);
+
     const atSame = await find(day, "19:00", 4);
     expect(atSame.map((row) => row.table_id)).not.toContain(terrace);
 
-    // Бронь 19:00–20:30 плюс буфер 15 минут с каждой стороны: 20:30 ещё занято.
-    const atBuffer = await find(day, "20:30", 4);
-    expect(atBuffer.map((row) => row.table_id)).not.toContain(terrace);
-
-    // Через 15 минут после конца буфера столик снова свободен. Позже 21:30 брать
-    // нельзя: слот длиной 90 минут уже не помещается до закрытия в 23:00.
+    // Бронь действует до полуночи, поэтому позже в тот же день столик не освобождается.
     const later = await find(day, "21:00", 4);
-    expect(later.map((row) => row.table_id)).toContain(terrace);
+    expect(later.map((row) => row.table_id)).not.toContain(terrace);
   });
 
   it("отменённая бронь столик не занимает", async () => {

@@ -1,9 +1,8 @@
--- Бронь КОНКРЕТНОГО столика по телефону — вход инструмента create_reservation.
+-- Бронь КОНКРЕТНОГО столика.
 --
 -- Отличие от create_reservation_atomic: там функция сама перебирает столики и выбирает
 -- подходящий, здесь столик уже выбран гостем по зоне из ответа find_available_tables.
--- Отличие от book_table_for_day: та занимает столик до конца дня для портала, эта —
--- на обычный слот slot_minutes и с буфером, как телефонная бронь.
+-- Любой канал занимает столик с выбранного времени до местной полуночи.
 --
 -- Вход — дата и местное время, а не timestamptz: n8n не имеет прав на таблицы и не может
 -- прочитать часовой пояс ресторана, чтобы собрать момент времени самостоятельно.
@@ -25,6 +24,7 @@ DECLARE
   v_table  record;
   v_starts timestamptz;
   v_ends   timestamptz;
+  v_service_ends timestamptz;
   v_id     uuid;
 BEGIN
   SELECT * INTO r FROM restaurants WHERE id = p_restaurant AND is_active;
@@ -35,13 +35,14 @@ BEGIN
   END IF;
 
   v_starts := ((p_date + p_time)::timestamp) AT TIME ZONE r.timezone;
-  v_ends   := v_starts + make_interval(mins => r.slot_minutes);
+  v_service_ends := v_starts + make_interval(mins => r.slot_minutes);
+  v_ends := ((p_date + 1)::timestamp) AT TIME ZONE r.timezone;
 
   IF v_starts <= now() THEN
     RAISE EXCEPTION 'slot_in_past' USING ERRCODE = '45006';
   END IF;
 
-  IF NOT is_open_between(p_restaurant, v_starts, v_ends) THEN
+  IF NOT is_open_between(p_restaurant, v_starts, v_service_ends) THEN
     RAISE EXCEPTION 'closed_at_requested_time' USING ERRCODE = '45004';
   END IF;
 
@@ -61,9 +62,11 @@ BEGIN
     SELECT 1 FROM reservations res
     WHERE res.table_id = v_table.id
       AND res.status IN ('confirmed','seated')
-      AND tstzrange(res.starts_at - make_interval(mins => r.buffer_minutes),
-                    res.ends_at   + make_interval(mins => r.buffer_minutes))
-          && tstzrange(v_starts, v_ends)
+      AND tstzrange(
+            res.starts_at,
+            ((((res.starts_at AT TIME ZONE r.timezone)::date + 1)::timestamp)
+             AT TIME ZONE r.timezone)
+          ) && tstzrange(v_starts, v_ends)
   ) THEN
     RAISE EXCEPTION 'table_already_booked' USING ERRCODE = '45016';
   END IF;

@@ -32,9 +32,18 @@ BEGIN
         SELECT 1 FROM reservations res
         WHERE res.table_id = t.id
           AND res.status IN ('confirmed','seated')
-          AND tstzrange(res.starts_at - make_interval(mins => r.buffer_minutes),
-                        res.ends_at   + make_interval(mins => r.buffer_minutes))
-              && tstzrange(rs.s_time, rs.s_time + make_interval(mins => r.slot_minutes))
+          -- Старые строки могли хранить 90-минутный ends_at. Для доступности они уже
+          -- считаются занятыми до полуночи без переписывания исторических данных.
+          AND tstzrange(
+                res.starts_at,
+                ((((res.starts_at AT TIME ZONE r.timezone)::date + 1)::timestamp)
+                 AT TIME ZONE r.timezone)
+              )
+              && tstzrange(
+                   rs.s_time,
+                   ((((rs.s_time AT TIME ZONE r.timezone)::date + 1)::timestamp)
+                    AT TIME ZONE r.timezone)
+                 )
       )
   )
   SELECT c.s_time, c.t_id, c.t_label, c.t_seats
