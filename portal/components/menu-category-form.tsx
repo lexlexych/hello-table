@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import { Drawer } from "@/components/ui/drawer";
 import { apiSend } from "@/lib/client-api";
 import type { MenuCategory } from "@/lib/menu";
@@ -36,16 +37,6 @@ export function toCategoryDraft(category: MenuCategory): CategoryDraft {
   };
 }
 
-const MESSAGES: Record<string, string> = {
-  duplicate: "Категория с таким немецким названием уже есть.",
-  invalid: "База отвергла значения. Проверьте поля.",
-  invalid_body: "Заполните название на всех трёх языках.",
-  not_found: "Категория уже удалена. Обновите страницу.",
-  forbidden: "Изменения доступны только администратору.",
-  unauthorized: "Сессия истекла. Войдите заново.",
-  network: "Сервер недоступен. Проверьте соединение.",
-};
-
 export function CategoryForm({
   draft: initial,
   onClose,
@@ -55,6 +46,7 @@ export function CategoryForm({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
+  const { locale, t } = useI18n();
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -64,7 +56,7 @@ export function CategoryForm({
 
     const sortOrder = Number(draft.sortOrder);
     if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 999) {
-      setError("Порядок — целое число от 0 до 999.");
+      setError(t("menu.form.orderInvalid"));
       return;
     }
 
@@ -83,15 +75,32 @@ export function CategoryForm({
 
     setBusy(false);
     if (!result.ok) {
-      setError(MESSAGES[result.failure.code] ?? "Не удалось сохранить.");
+      const errors: Record<string, string> = {
+        duplicate: t("menu.form.duplicate"),
+        invalid: t("menu.form.invalid"),
+        invalid_body: t("menu.form.invalidNames"),
+        not_found: t("menu.form.notFound"),
+        forbidden: t("menu.form.adminOnly"),
+        unauthorized: t("common.sessionExpired"),
+        network: t("common.networkError"),
+      };
+      setError(errors[result.failure.code] ?? t("menu.form.failed"));
       return;
     }
-    onSaved(`Категория «${draft.nameRu}» сохранена`);
+    const name =
+      locale === "de"
+        ? draft.nameDe
+        : locale === "en"
+          ? draft.nameEn
+          : draft.nameRu;
+    onSaved(t("menu.form.categorySaved", { name }));
   }
 
   return (
     <Drawer
-      title={draft.id ? "Изменение категории" : "Новая категория"}
+      title={
+        draft.id ? t("menu.form.editCategory") : t("menu.form.newCategory")
+      }
       onClose={onClose}
       footer={
         <>
@@ -101,10 +110,10 @@ export function CategoryForm({
             className="primary"
             disabled={busy}
           >
-            {busy ? "Сохраняю…" : "Сохранить"}
+            {busy ? t("common.saving") : t("common.save")}
           </button>
           <button type="button" onClick={onClose}>
-            Отмена
+            {t("common.cancel")}
           </button>
         </>
       }
@@ -113,7 +122,7 @@ export function CategoryForm({
         {error ? <p className="form-note">{error}</p> : null}
 
         <label className="field">
-          <span>Название, немецкий</span>
+          <span>{t("menu.form.nameDe")}</span>
           <input
             value={draft.nameDe}
             onChange={(event) =>
@@ -124,7 +133,7 @@ export function CategoryForm({
           />
         </label>
         <label className="field">
-          <span>Название, русский</span>
+          <span>{t("menu.form.nameRu")}</span>
           <input
             value={draft.nameRu}
             onChange={(event) =>
@@ -135,7 +144,7 @@ export function CategoryForm({
           />
         </label>
         <label className="field">
-          <span>Название, английский</span>
+          <span>{t("menu.form.nameEn")}</span>
           <input
             value={draft.nameEn}
             onChange={(event) =>
@@ -146,7 +155,7 @@ export function CategoryForm({
           />
         </label>
         <label className="field">
-          <span>Порядок в меню</span>
+          <span>{t("menu.form.sortOrder")}</span>
           <input
             type="number"
             min={0}
@@ -157,7 +166,7 @@ export function CategoryForm({
             }
             required
           />
-          <p className="field-hint">Меньше — выше в списке.</p>
+          <p className="field-hint">{t("menu.form.sortHint")}</p>
         </label>
       </form>
     </Drawer>

@@ -6,36 +6,17 @@ import {
 } from "@hello-table/contracts";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import { apiSend } from "@/lib/client-api";
 import type { CallbackMessage } from "@/lib/messages";
-import {
-  MESSAGE_ACTION_ERRORS,
-  MESSAGE_STATUS_LABELS,
-} from "@/lib/schemas/messages";
-
-const CATEGORY_LABELS = {
-  banquet: "Банкет",
-  complaint: "Жалоба",
-  special: "Особое пожелание",
-  other: "Другой вопрос",
-} as const;
-
-const SOURCE_LABELS = {
-  voice: "Голосовой ассистент",
-  telegram: "Telegram",
-} as const;
 
 function nextStatus(status: CallbackRequestStatus): CallbackRequestStatus {
   if (status === "new") return "in_progress";
   return status === "in_progress" ? "done" : "in_progress";
 }
 
-function actionLabel(status: CallbackRequestStatus): string {
-  if (status === "new") return "Взять в работу";
-  return status === "in_progress" ? "Обработано" : "Вернуть в работу";
-}
-
 export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -52,8 +33,13 @@ export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
     setBusyId(undefined);
     if (!result.ok) {
       setError(
-        MESSAGE_ACTION_ERRORS[result.failure.code] ??
-          "Не удалось изменить статус сообщения.",
+        {
+          invalid_body: t("messages.error.invalid"),
+          not_found: t("messages.error.notFound"),
+          forbidden: t("common.forbidden"),
+          unauthorized: t("common.sessionExpired"),
+          network: t("common.networkError"),
+        }[result.failure.code] ?? t("messages.changeFailed"),
       );
       return;
     }
@@ -61,12 +47,7 @@ export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
   }
 
   async function remove(message: CallbackMessage) {
-    if (
-      busyId ||
-      !window.confirm(
-        "Удалить сообщение без возможности восстановления?",
-      )
-    ) {
+    if (busyId || !window.confirm(t("messages.deleteConfirm"))) {
       return;
     }
     setBusyId(message.id);
@@ -75,15 +56,22 @@ export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
     setBusyId(undefined);
     if (!result.ok) {
       setError(
-        MESSAGE_ACTION_ERRORS[result.failure.code] ??
-          "Не удалось удалить сообщение.",
+        {
+          invalid_body: t("messages.error.invalid"),
+          not_found: t("messages.error.notFound"),
+          forbidden: t("common.forbidden"),
+          unauthorized: t("common.sessionExpired"),
+          network: t("common.networkError"),
+        }[result.failure.code] ?? t("messages.deleteFailed"),
       );
       return;
     }
     router.refresh();
   }
 
-  const newCount = messages.filter((message) => message.status === "new").length;
+  const newCount = messages.filter(
+    (message) => message.status === "new",
+  ).length;
   const openCount = messages.filter(
     (message) => message.status !== "done",
   ).length;
@@ -92,12 +80,12 @@ export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
     <>
       <div className="page-head">
         <div>
-          <h1>Сообщения</h1>
-          <p>Запросы клиентов, которым требуется ответ оператора.</p>
+          <h1>{t("messages.title")}</h1>
+          <p>{t("messages.subtitle")}</p>
         </div>
         <div className="page-head-actions">
           <button type="button" onClick={() => router.refresh()}>
-            Обновить
+            {t("common.refresh")}
           </button>
         </div>
       </div>
@@ -105,11 +93,11 @@ export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
       <div className="stat-row">
         <div className="stat">
           <span className="stat-value">{newCount}</span>
-          <span className="stat-label">новых</span>
+          <span className="stat-label">{t("messages.new")}</span>
         </div>
         <div className="stat">
           <span className="stat-value">{openCount}</span>
-          <span className="stat-label">требуют внимания</span>
+          <span className="stat-label">{t("messages.attention")}</span>
         </div>
       </div>
 
@@ -121,19 +109,21 @@ export function MessageBoard({ messages }: { messages: CallbackMessage[] }) {
 
       <div className="message-board">
         {CALLBACK_REQUEST_STATUSES.map((status) => {
-          const column = messages.filter((message) => message.status === status);
+          const column = messages.filter(
+            (message) => message.status === status,
+          );
           return (
             <section
               className="message-column"
-              aria-label={MESSAGE_STATUS_LABELS[status]}
+              aria-label={t(`messages.status.${status}`)}
               key={status}
             >
               <div className="board-column-head">
-                <span>{MESSAGE_STATUS_LABELS[status]}</span>
+                <span>{t(`messages.status.${status}`)}</span>
                 <span className="board-count">{column.length}</span>
               </div>
               {column.length === 0 ? (
-                <p className="board-empty">пусто</p>
+                <p className="board-empty">{t("common.empty")}</p>
               ) : (
                 column.map((message) => (
                   <MessageCard
@@ -164,10 +154,13 @@ function MessageCard({
   onMove: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <article className="message-card">
       <header className="message-card-head">
-        <span className="badge">{CATEGORY_LABELS[message.category]}</span>
+        <span className="badge">
+          {t(`messages.category.${message.category}`)}
+        </span>
         <span className="message-card-head-meta">
           <time>{message.createdAtLocal}</time>
           <button
@@ -175,8 +168,8 @@ function MessageCard({
             className="message-delete"
             disabled={busy}
             onClick={onDelete}
-            aria-label="Удалить сообщение"
-            title="Удалить сообщение"
+            aria-label={t("messages.deleteLabel")}
+            title={t("messages.deleteLabel")}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" />
@@ -187,29 +180,29 @@ function MessageCard({
       <p className="message-summary">{message.summary}</p>
       <dl className="message-meta">
         <div>
-          <dt>Контакт</dt>
+          <dt>{t("messages.contact")}</dt>
           <dd>
-            {message.contactValue ?? "не указан"}
+            {message.contactValue ?? t("common.notSpecified")}
             {message.contactKind === "telegram_id" ? " (Telegram ID)" : ""}
           </dd>
         </div>
         <div>
-          <dt>Источник</dt>
-          <dd>{SOURCE_LABELS[message.source]}</dd>
+          <dt>{t("messages.source")}</dt>
+          <dd>{t(`messages.source.${message.source}`)}</dd>
         </div>
         <div>
-          <dt>Язык</dt>
+          <dt>{t("messages.language")}</dt>
           <dd>{message.language.toUpperCase()}</dd>
         </div>
         {message.handledBy ? (
           <div>
-            <dt>Ответственный</dt>
+            <dt>{t("messages.owner")}</dt>
             <dd>{message.handledBy}</dd>
           </div>
         ) : null}
       </dl>
       <button type="button" disabled={busy} onClick={onMove}>
-        {actionLabel(message.status)}
+        {t(`messages.action.${message.status}`)}
       </button>
     </article>
   );

@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 export function LogoutButton() {
+  const { t } = useI18n();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -16,7 +18,7 @@ export function LogoutButton() {
 
   return (
     <button type="button" onClick={onClick} disabled={busy}>
-      Выйти
+      {t("common.logout")}
     </button>
   );
 }

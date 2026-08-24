@@ -6,14 +6,15 @@ import {
 } from "@hello-table/contracts";
 import { useRouter } from "next/navigation";
 import { type DragEvent, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import {
   type PickupMenuItem,
   PickupOrderForm,
 } from "@/components/pickup-order-form";
 import { apiSend } from "@/lib/client-api";
+import { intlLocale } from "@/lib/i18n/catalog";
 import type { PickupOrder } from "@/lib/pickup";
 import { formatEuros } from "@/lib/schemas/menu";
-import { PICKUP_MESSAGES, PICKUP_STATUS_LABELS } from "@/lib/schemas/pickup";
 
 /**
  * Канбан заказов на самовывоз (PROJECT.md §7.3). Колонок ровно столько, сколько
@@ -36,12 +37,6 @@ const CLOSED: ReadonlySet<PickupOrderStatus> = new Set([
   "picked_up",
   "cancelled",
 ]);
-
-const SOURCE_LABELS: Record<string, string> = {
-  phone: "звонок",
-  portal: "портал",
-  test: "тест",
-};
 
 type Urgency = "soon" | "late" | undefined;
 
@@ -72,6 +67,7 @@ export function PickupBoard({
   menu: PickupMenuItem[];
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [now, setNow] = useState<number | undefined>(undefined);
   const [dragged, setDragged] = useState<string | undefined>(undefined);
   const [over, setOver] = useState<PickupOrderStatus | undefined>(undefined);
@@ -104,12 +100,24 @@ export function PickupBoard({
     setBusy(false);
 
     if (!result.ok) {
-      setError(
-        PICKUP_MESSAGES[result.failure.code] ?? "Не удалось изменить статус.",
-      );
+      const errors: Record<string, string> = {
+        duplicate: t("pickup.error.duplicate"),
+        invalid: t("pickup.error.invalid"),
+        invalid_body: t("pickup.error.invalid_body"),
+        not_found: t("pickup.error.not_found"),
+        forbidden: t("common.forbidden"),
+        unauthorized: t("common.sessionExpired"),
+        network: t("common.networkError"),
+      };
+      setError(errors[result.failure.code] ?? t("pickup.moveFailed"));
       return;
     }
-    show(`Заказ № ${order.orderNumber} → ${PICKUP_STATUS_LABELS[status]}`);
+    show(
+      t("pickup.moved", {
+        number: order.orderNumber,
+        status: t(`pickup.status.${status}`),
+      }),
+    );
     router.refresh();
   }
 
@@ -133,22 +141,19 @@ export function PickupBoard({
     <>
       <div className="page-head">
         <div>
-          <h1>Самовывоз</h1>
-          <p className="note">
-            Заказы на сегодня. Карточка перетаскивается мышью; стрелками на
-            карточке статус меняется с клавиатуры и на планшете.
-          </p>
+          <h1>{t("pickup.title")}</h1>
+          <p className="note">{t("pickup.subtitle")}</p>
         </div>
         <div className="page-head-actions">
           <button type="button" onClick={() => router.refresh()}>
-            Обновить
+            {t("common.refresh")}
           </button>
           <button
             type="button"
             className="primary"
             onClick={() => setCreating(true)}
           >
-            Новый заказ
+            {t("pickup.newOrder")}
           </button>
         </div>
       </div>
@@ -156,11 +161,11 @@ export function PickupBoard({
       <div className="stat-row">
         <div className="stat">
           <span className="stat-value">{total}</span>
-          <span className="stat-label">заказов сегодня</span>
+          <span className="stat-label">{t("pickup.ordersToday")}</span>
         </div>
         <div className="stat">
           <span className="stat-value">{openCount}</span>
-          <span className="stat-label">в работе</span>
+          <span className="stat-label">{t("pickup.inProgress")}</span>
         </div>
       </div>
 
@@ -174,7 +179,7 @@ export function PickupBoard({
             // быть названной областью, иначе для скринридера она немой контейнер.
             <section
               key={status}
-              aria-label={PICKUP_STATUS_LABELS[status]}
+              aria-label={t(`pickup.status.${status}`)}
               className={`board-column${over === status ? " is-over" : ""}`}
               onDragOver={(event) => {
                 // Без preventDefault браузер считает колонку недопустимой целью.
@@ -187,12 +192,12 @@ export function PickupBoard({
               onDrop={(event) => onDrop(event, status)}
             >
               <div className="board-column-head">
-                <span>{PICKUP_STATUS_LABELS[status]}</span>
+                <span>{t(`pickup.status.${status}`)}</span>
                 <span className="board-count">{column.length}</span>
               </div>
 
               {column.length === 0 ? (
-                <p className="board-empty">пусто</p>
+                <p className="board-empty">{t("common.empty")}</p>
               ) : (
                 column.map((order) => (
                   <OrderCard
@@ -250,6 +255,7 @@ function OrderCard({
   onDragEnd: () => void;
   onMove: (status: PickupOrderStatus) => void;
 }) {
+  const { locale, t } = useI18n();
   const index = PICKUP_ORDER_STATUSES.indexOf(order.status);
   const previous = PICKUP_ORDER_STATUSES[index - 1];
   const next = PICKUP_ORDER_STATUSES[index + 1];
@@ -270,7 +276,11 @@ function OrderCard({
         {order.guestName}
         {order.guestPhone ? ` · ${order.guestPhone}` : ""}
         <span className="badge">
-          {SOURCE_LABELS[order.source] ?? order.source}
+          {order.source === "phone" ||
+          order.source === "portal" ||
+          order.source === "test"
+            ? t(`pickup.source.${order.source}`)
+            : order.source}
         </span>
       </p>
 
@@ -288,7 +298,9 @@ function OrderCard({
       </ul>
 
       <footer className="order-card-foot">
-        <span className="order-total">{formatEuros(order.totalCents)}</span>
+        <span className="order-total">
+          {formatEuros(order.totalCents, intlLocale(locale))}
+        </span>
         <span className="order-move">
           <button
             type="button"
@@ -297,8 +309,10 @@ function OrderCard({
             onClick={() => previous && onMove(previous)}
             aria-label={
               previous
-                ? `Вернуть в «${PICKUP_STATUS_LABELS[previous]}»`
-                : "Предыдущего статуса нет"
+                ? t("pickup.previous", {
+                    status: t(`pickup.status.${previous}`),
+                  })
+                : t("pickup.noPrevious")
             }
           >
             ←
@@ -310,8 +324,8 @@ function OrderCard({
             onClick={() => next && onMove(next)}
             aria-label={
               next
-                ? `Перевести в «${PICKUP_STATUS_LABELS[next]}»`
-                : "Следующего статуса нет"
+                ? t("pickup.next", { status: t(`pickup.status.${next}`) })
+                : t("pickup.noNext")
             }
           >
             →

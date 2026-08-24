@@ -1,12 +1,12 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import { Drawer } from "@/components/ui/drawer";
 import { Toggle } from "@/components/ui/toggle";
 import { apiSend } from "@/lib/client-api";
 import type { MenuCategory, MenuItem } from "@/lib/menu";
 import {
-  ALLERGEN_LABELS,
   ALLERGENS,
   type Allergen,
   centsToInput,
@@ -78,21 +78,6 @@ export function toItemDraft(item: MenuItem): ItemDraft {
   };
 }
 
-const MESSAGES: Record<string, string> = {
-  invalid: "База отвергла значения. Проверьте поля.",
-  invalid_body: "Проверьте заполнение полей.",
-  not_found: "Категория или блюдо уже удалены. Обновите страницу.",
-  forbidden: "Изменения доступны только администратору.",
-  unauthorized: "Сессия истекла. Войдите заново.",
-  network: "Сервер недоступен. Проверьте соединение.",
-};
-
-const LANGUAGE_NAMES: Record<Language, string> = {
-  de: "немецкий",
-  ru: "русский",
-  en: "английский",
-};
-
 const NAME_FIELD = {
   de: "nameDe",
   ru: "nameRu",
@@ -116,6 +101,7 @@ export function ItemForm({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
+  const { locale, t } = useI18n();
   const [draft, setDraft] = useState(initial);
   const [lang, setLang] = useState<Language>("de");
   const [alias, setAlias] = useState("");
@@ -146,7 +132,7 @@ export function ItemForm({
 
     const priceCents = parseEuros(draft.price);
     if (priceCents === undefined) {
-      setError("Цена — число с двумя знаками после запятой, например 12,50.");
+      setError(t("menu.form.priceInvalid"));
       return;
     }
     const prepMinutes = Number(draft.prepMinutes);
@@ -155,11 +141,11 @@ export function ItemForm({
       prepMinutes < 0 ||
       prepMinutes > 240
     ) {
-      setError("Время приготовления — целое число минут от 0 до 240.");
+      setError(t("menu.form.prepInvalid"));
       return;
     }
     if (!draft.nameDe.trim() || !draft.nameRu.trim() || !draft.nameEn.trim()) {
-      setError("Название нужно заполнить на всех трёх языках.");
+      setError(t("menu.form.namesRequired"));
       return;
     }
 
@@ -188,17 +174,31 @@ export function ItemForm({
 
     setBusy(false);
     if (!result.ok) {
-      setError(MESSAGES[result.failure.code] ?? "Не удалось сохранить.");
+      const errors: Record<string, string> = {
+        invalid: t("menu.form.invalid"),
+        invalid_body: t("menu.form.invalid"),
+        not_found: t("menu.form.notFound"),
+        forbidden: t("menu.form.adminOnly"),
+        unauthorized: t("common.sessionExpired"),
+        network: t("common.networkError"),
+      };
+      setError(errors[result.failure.code] ?? t("menu.form.failed"));
       return;
     }
-    onSaved(`Блюдо «${draft.nameRu}» сохранено`);
+    const name =
+      locale === "de"
+        ? draft.nameDe
+        : locale === "en"
+          ? draft.nameEn
+          : draft.nameRu;
+    onSaved(t("menu.form.itemSaved", { name }));
   }
 
   const missing = LANGUAGES.filter((code) => !draft[NAME_FIELD[code]].trim());
 
   return (
     <Drawer
-      title={draft.id ? "Изменение блюда" : "Новое блюдо"}
+      title={draft.id ? t("menu.form.editItem") : t("menu.form.newItem")}
       onClose={onClose}
       footer={
         <>
@@ -208,10 +208,10 @@ export function ItemForm({
             className="primary"
             disabled={busy}
           >
-            {busy ? "Сохраняю…" : "Сохранить"}
+            {busy ? t("common.saving") : t("common.save")}
           </button>
           <button type="button" onClick={onClose}>
-            Отмена
+            {t("common.cancel")}
           </button>
         </>
       }
@@ -220,7 +220,7 @@ export function ItemForm({
         {error ? <p className="form-note">{error}</p> : null}
 
         <label className="field">
-          <span>Категория</span>
+          <span>{t("menu.form.category")}</span>
           <select
             value={draft.categoryId}
             onChange={(event) =>
@@ -229,13 +229,21 @@ export function ItemForm({
           >
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.nameRu}
+                {locale === "de"
+                  ? category.nameDe
+                  : locale === "en"
+                    ? category.nameEn
+                    : category.nameRu}
               </option>
             ))}
           </select>
         </label>
 
-        <div className="lang-tabs" role="tablist" aria-label="Язык текстов">
+        <div
+          className="lang-tabs"
+          role="tablist"
+          aria-label={t("menu.form.textLanguage")}
+        >
           {LANGUAGES.map((code) => (
             <button
               key={code}
@@ -250,7 +258,9 @@ export function ItemForm({
         </div>
 
         <label className="field">
-          <span>Название, {LANGUAGE_NAMES[lang]}</span>
+          <span>
+            {t("menu.form.name", { language: t(`menu.form.language.${lang}`) })}
+          </span>
           <input
             value={draft[NAME_FIELD[lang]]}
             onChange={(event) =>
@@ -264,7 +274,11 @@ export function ItemForm({
         </label>
 
         <label className="field">
-          <span>Описание, {LANGUAGE_NAMES[lang]}</span>
+          <span>
+            {t("menu.form.description", {
+              language: t(`menu.form.language.${lang}`),
+            })}
+          </span>
           <textarea
             value={draft[DESCRIPTION_FIELD[lang]]}
             onChange={(event) =>
@@ -275,19 +289,22 @@ export function ItemForm({
             }
             maxLength={600}
           />
-          <p className="field-hint">Необязательно.</p>
+          <p className="field-hint">{t("menu.form.optional")}</p>
         </label>
 
         {missing.length > 0 ? (
           <p className="field-hint">
-            Название не заполнено:{" "}
-            {missing.map((code) => LANGUAGE_NAMES[code]).join(", ")}.
+            {t("menu.form.missingNames", {
+              languages: missing
+                .map((code) => t(`menu.form.language.${code}`))
+                .join(", "),
+            })}
           </p>
         ) : null}
 
         <div className="field-row">
           <label className="field">
-            <span>Цена, €</span>
+            <span>{t("menu.form.price")}</span>
             <input
               inputMode="decimal"
               value={draft.price}
@@ -298,7 +315,7 @@ export function ItemForm({
             />
           </label>
           <label className="field">
-            <span>Готовится, мин</span>
+            <span>{t("menu.form.prep")}</span>
             <input
               type="number"
               min={0}
@@ -313,7 +330,7 @@ export function ItemForm({
         </div>
 
         <fieldset className="field-group">
-          <legend>Аллергены</legend>
+          <legend>{t("menu.form.allergens")}</legend>
           <div className="chip-row">
             {ALLERGENS.map((allergen) => (
               <label className="chip" key={allergen}>
@@ -324,24 +341,24 @@ export function ItemForm({
                     toggleAllergen(allergen, event.currentTarget.checked)
                   }
                 />
-                {ALLERGEN_LABELS[allergen]}
+                {t(`allergen.${allergen}`)}
               </label>
             ))}
           </div>
         </fieldset>
 
         <fieldset className="field-group">
-          <legend>Свойства</legend>
+          <legend>{t("menu.form.properties")}</legend>
           <div className="switch-stack">
             <Toggle
-              label="Вегетарианское"
+              label={t("menu.form.isVegetarian")}
               checked={draft.isVegetarian}
               // Веганское без вегетарианского база не примет (CHECK в миграции 003).
               disabled={draft.isVegan}
               onChange={(value) => setDraft({ ...draft, isVegetarian: value })}
             />
             <Toggle
-              label="Веганское"
+              label={t("menu.form.isVegan")}
               checked={draft.isVegan}
               onChange={(value) =>
                 setDraft({
@@ -352,7 +369,7 @@ export function ItemForm({
               }
             />
             <Toggle
-              label="В продаже"
+              label={t("menu.form.isAvailable")}
               checked={draft.isAvailable}
               onChange={(value) => setDraft({ ...draft, isAvailable: value })}
             />
@@ -360,7 +377,7 @@ export function ItemForm({
         </fieldset>
 
         <fieldset className="field-group">
-          <legend>Синонимы для распознавания на слух</legend>
+          <legend>{t("menu.form.aliases")}</legend>
           <div className="tag-input">
             <input
               value={alias}
@@ -373,10 +390,10 @@ export function ItemForm({
                 }
               }}
               maxLength={60}
-              placeholder="например, Pizza Salami"
+              placeholder={t("menu.form.aliasPlaceholder")}
             />
             <button type="button" onClick={addAlias}>
-              Добавить
+              {t("common.add")}
             </button>
           </div>
           {draft.aliases.length > 0 ? (
@@ -386,7 +403,7 @@ export function ItemForm({
                   {value}
                   <button
                     type="button"
-                    aria-label={`Убрать синоним ${value}`}
+                    aria-label={t("menu.form.removeAlias", { value })}
                     onClick={() =>
                       setDraft({
                         ...draft,
@@ -400,9 +417,7 @@ export function ItemForm({
               ))}
             </ul>
           ) : (
-            <p className="field-hint">
-              По ним агент находит блюдо, когда гость называет его иначе.
-            </p>
+            <p className="field-hint">{t("menu.form.aliasHint")}</p>
           )}
         </fieldset>
       </form>

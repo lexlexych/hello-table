@@ -2,14 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-
-const MESSAGES: Record<string, string> = {
-  missing_fields: "Заполните оба поля.",
-  invalid_credentials: "Неверный логин или пароль.",
-  rate_limited: "Слишком много попыток входа. Попробуйте позже.",
-};
+import { useI18n } from "@/components/i18n-provider";
 
 export function LoginForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const [error, setError] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -40,20 +36,25 @@ export function LoginForm() {
       typeof body === "object" && body !== null
         ? String((body as Record<string, unknown>).error ?? "")
         : "";
-    setError(MESSAGES[code] ?? "Не удалось войти. Попробуйте ещё раз.");
+    const messages: Record<string, string> = {
+      missing_fields: t("login.missing"),
+      invalid_credentials: t("login.invalid"),
+      rate_limited: t("login.rateLimited"),
+    };
+    setError(messages[code] ?? t("login.failed"));
     setBusy(false);
   }
 
   return (
     <form className="login-card" onSubmit={onSubmit}>
-      <h1>Вход в портал</h1>
+      <h1>{t("login.title")}</h1>
       {error ? <p className="form-error">{error}</p> : null}
       <label className="field">
-        <span>Логин</span>
+        <span>{t("login.username")}</span>
         <input name="username" autoComplete="username" required />
       </label>
       <label className="field">
-        <span>Пароль</span>
+        <span>{t("login.password")}</span>
         <input
           name="password"
           type="password"
@@ -62,7 +63,7 @@ export function LoginForm() {
         />
       </label>
       <button className="primary" type="submit" disabled={busy}>
-        {busy ? "Проверяю…" : "Войти"}
+        {busy ? t("login.checking") : t("login.submit")}
       </button>
     </form>
   );

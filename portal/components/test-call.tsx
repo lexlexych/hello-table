@@ -9,6 +9,8 @@ import {
   Track,
 } from "livekit-client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
+import type { MessageKey } from "@/lib/i18n/catalog";
 
 /**
  * Тестовый звонок из браузера (PROJECT.md §7.3 п.10, сценарий F из §1.2).
@@ -59,32 +61,38 @@ interface Grant {
   identity: string;
 }
 
-async function requestGrant(): Promise<Grant> {
+type Translate = (
+  key: MessageKey,
+  values?: Readonly<Record<string, string | number>>,
+) => string;
+
+async function requestGrant(t: Translate): Promise<Grant> {
   const response = await fetch("/api/test-call/token", { method: "POST" });
   if (!response.ok) {
     throw new Error(
       response.status === 401
-        ? "Сессия истекла. Войдите заново."
-        : `Портал не выдал токен (HTTP ${response.status}).`,
+        ? t("common.sessionExpired")
+        : t("testCall.tokenFailed", { status: response.status }),
     );
   }
   return (await response.json()) as Grant;
 }
 
-function describeConnectError(error: unknown): string {
+function describeConnectError(error: unknown, t: Translate): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
-    return "Браузер не дал доступ к микрофону. Разрешите его и попробуйте снова.";
+    return t("testCall.micDenied");
   }
   if (error instanceof DOMException && error.name === "NotFoundError") {
-    return "Микрофон не найден.";
+    return t("testCall.micMissing");
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return "Не удалось начать звонок.";
+  return t("testCall.startFailed");
 }
 
 export default function TestCall() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | undefined>(undefined);
   const [notice, setNotice] = useState<string | undefined>(undefined);
@@ -186,7 +194,7 @@ export default function TestCall() {
 
     let room: Room | undefined;
     try {
-      const grant = await requestGrant();
+      const grant = await requestGrant(t);
       identityRef.current = grant.identity;
 
       room = new Room({
@@ -243,9 +251,7 @@ export default function TestCall() {
           current.state === ConnectionState.Connected &&
           current.remoteParticipants.size === 0
         ) {
-          setNotice(
-            "Агент не вошёл в комнату. Проверьте, что запущен воркер: pnpm agent:dev",
-          );
+          setNotice(t("testCall.agentMissing"));
         }
       }, AGENT_JOIN_TIMEOUT_MS);
     } catch (cause) {
@@ -253,9 +259,9 @@ export default function TestCall() {
       roomRef.current = undefined;
       stopTimer();
       setPhase("idle");
-      setError(describeConnectError(cause));
+      setError(describeConnectError(cause, t));
     }
-  }, [readTranscription, startTimer, stopTimer]);
+  }, [readTranscription, startTimer, stopTimer, t]);
 
   useEffect(() => {
     return () => {
@@ -272,7 +278,7 @@ export default function TestCall() {
       <div className="call-controls">
         {phase === "live" ? (
           <button type="button" onClick={() => void stopCall()}>
-            Завершить
+            {t("testCall.end")}
           </button>
         ) : (
           <button
@@ -281,7 +287,9 @@ export default function TestCall() {
             onClick={() => void startCall()}
             disabled={phase === "connecting"}
           >
-            {phase === "connecting" ? "Соединяю…" : "Позвонить"}
+            {phase === "connecting"
+              ? t("testCall.connecting")
+              : t("testCall.call")}
           </button>
         )}
         <time className="call-timer" dateTime={`PT${callDurationSeconds}S`}>
@@ -289,10 +297,10 @@ export default function TestCall() {
         </time>
         <span className="call-status">
           {phase === "live"
-            ? "Идёт разговор — говорите в микрофон"
+            ? t("testCall.live")
             : phase === "connecting"
-              ? "Подключаюсь к комнате"
-              : "Звонок не начат"}
+              ? t("testCall.joining")
+              : t("testCall.idle")}
         </span>
       </div>
 
@@ -301,10 +309,7 @@ export default function TestCall() {
 
       <div className="transcript">
         {turns.length === 0 ? (
-          <p className="transcript-empty">
-            Транскрипт появится здесь. Он нигде не сохраняется и исчезнет при
-            перезагрузке страницы.
-          </p>
+          <p className="transcript-empty">{t("testCall.transcriptEmpty")}</p>
         ) : (
           turns.map((turn) => (
             <div
@@ -312,7 +317,9 @@ export default function TestCall() {
               className={`turn ${turn.speaker} ${turn.final ? "" : "interim"}`}
             >
               <span className="turn-speaker">
-                {turn.speaker === "agent" ? "Агент" : "Вы"}
+                {turn.speaker === "agent"
+                  ? t("testCall.agent")
+                  : t("testCall.you")}
               </span>
               <p className="turn-text">{turn.text}</p>
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef } from "react";
+import { useI18n } from "@/components/i18n-provider";
 
 /**
  * Боковая панель формы. Открывается и закрывается родителем: панель не знает,
@@ -20,6 +21,7 @@ export function Drawer({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const { t } = useI18n();
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export function Drawer({
         <div className="drawer-head">
           <h2>{title}</h2>
           <button type="button" className="ghost" onClick={onClose}>
-            Закрыть
+            {t("common.close")}
           </button>
         </div>
         <div className="drawer-body">{children}</div>

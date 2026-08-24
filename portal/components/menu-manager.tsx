@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n-provider";
 import {
   type CategoryDraft,
   CategoryForm,
@@ -15,21 +16,14 @@ import {
   toItemDraft,
 } from "@/components/menu-item-form";
 import { apiSend } from "@/lib/client-api";
+import { intlLocale } from "@/lib/i18n/catalog";
 import type { MenuCategory, MenuItem } from "@/lib/menu";
-import { ALLERGEN_LABELS, formatEuros } from "@/lib/schemas/menu";
+import { formatEuros } from "@/lib/schemas/menu";
 
 /**
  * Экран меню: слева категории, справа блюда выбранной категории. Данные приходят
  * с сервера, после записи страница перечитывается через `router.refresh()`.
  */
-
-/** `in_use` разбирается на месте: текст зависит от того, категория это или блюдо. */
-const DELETE_MESSAGES: Record<string, string> = {
-  not_found: "Уже удалено. Обновите страницу.",
-  forbidden: "Удаление доступно только администратору.",
-  unauthorized: "Сессия истекла. Войдите заново.",
-  network: "Сервер недоступен. Проверьте соединение.",
-};
 
 export function MenuManager({
   categories,
@@ -40,7 +34,28 @@ export function MenuManager({
   items: MenuItem[];
   canEdit: boolean;
 }) {
+  const { locale, t } = useI18n();
   const router = useRouter();
+  const categoryName = (category: MenuCategory) =>
+    locale === "de"
+      ? category.nameDe
+      : locale === "en"
+        ? category.nameEn
+        : category.nameRu;
+  const itemName = (item: MenuItem) =>
+    locale === "de" ? item.nameDe : locale === "en" ? item.nameEn : item.nameRu;
+  const otherItemNames = (item: MenuItem) =>
+    locale === "de"
+      ? `${item.nameRu} / ${item.nameEn}`
+      : locale === "en"
+        ? `${item.nameDe} / ${item.nameRu}`
+        : `${item.nameDe} / ${item.nameEn}`;
+  const deleteMessages: Record<string, string> = {
+    not_found: t("menu.deletedAlready"),
+    forbidden: t("menu.adminDelete"),
+    unauthorized: t("common.sessionExpired"),
+    network: t("common.networkError"),
+  };
   const [selected, setSelected] = useState<string | undefined>(
     categories[0]?.id,
   );
@@ -82,12 +97,14 @@ export function MenuManager({
   async function removeCategory(category: MenuCategory) {
     const count = countByCategory.get(category.id) ?? 0;
     if (count > 0) {
-      show(
-        `В категории «${category.nameRu}» ещё ${count} блюд — сначала перенесите или удалите их.`,
-      );
+      show(t("menu.categoryHasItems", { name: categoryName(category), count }));
       return;
     }
-    if (!window.confirm(`Удалить категорию «${category.nameRu}»?`)) {
+    if (
+      !window.confirm(
+        t("menu.confirmDeleteCategory", { name: categoryName(category) }),
+      )
+    ) {
       return;
     }
 
@@ -98,20 +115,18 @@ export function MenuManager({
     if (!result.ok) {
       show(
         result.failure.code === "in_use"
-          ? "В категории есть блюда — удалить её нельзя."
-          : (DELETE_MESSAGES[result.failure.code] ?? "Не удалось удалить."),
+          ? t("menu.categoryInUse")
+          : (deleteMessages[result.failure.code] ?? t("menu.deleteFailed")),
       );
       return;
     }
-    show(`Категория «${category.nameRu}» удалена`);
+    show(t("menu.categoryDeleted", { name: categoryName(category) }));
     router.refresh();
   }
 
   async function removeItem(item: MenuItem) {
     if (
-      !window.confirm(
-        `Удалить блюдо «${item.nameRu}»? Если оно попадало в заказы, база не даст его удалить — тогда снимите блюдо с продажи.`,
-      )
+      !window.confirm(t("menu.confirmDeleteItem", { name: itemName(item) }))
     ) {
       return;
     }
@@ -120,12 +135,12 @@ export function MenuManager({
     if (!result.ok) {
       show(
         result.failure.code === "in_use"
-          ? "Блюдо есть в оформленных заказах — снимите его с продажи вместо удаления."
-          : (DELETE_MESSAGES[result.failure.code] ?? "Не удалось удалить."),
+          ? t("menu.itemInUse")
+          : (deleteMessages[result.failure.code] ?? t("menu.deleteFailed")),
       );
       return;
     }
-    show(`Блюдо «${item.nameRu}» удалено`);
+    show(t("menu.itemDeleted", { name: itemName(item) }));
     router.refresh();
   }
 
@@ -133,11 +148,8 @@ export function MenuManager({
     <>
       <div className="page-head">
         <div>
-          <h1>Меню</h1>
-          <p>
-            Категории и блюда на трёх языках: по ним агент отвечает на вопросы и
-            собирает заказ на самовывоз.
-          </p>
+          <h1>{t("menu.title")}</h1>
+          <p>{t("menu.subtitle")}</p>
         </div>
         {canEdit ? (
           <div className="page-head-actions">
@@ -145,7 +157,7 @@ export function MenuManager({
               type="button"
               onClick={() => setCategoryDraft({ ...EMPTY_CATEGORY })}
             >
-              Новая категория
+              {t("menu.newCategory")}
             </button>
             <button
               type="button"
@@ -153,48 +165,42 @@ export function MenuManager({
               disabled={!current}
               onClick={() => current && setItemDraft(emptyItem(current.id))}
             >
-              Новое блюдо
+              {t("menu.newItem")}
             </button>
           </div>
         ) : null}
       </div>
 
-      {canEdit ? null : (
-        <p className="notice">
-          Режим просмотра: изменять меню может только администратор.
-        </p>
-      )}
+      {canEdit ? null : <p className="notice">{t("menu.viewOnly")}</p>}
 
       <div className="stat-row">
         <div className="stat">
           <span className="stat-value">{categories.length}</span>
-          <span className="stat-label">категорий</span>
+          <span className="stat-label">{t("menu.categories")}</span>
         </div>
         <div className="stat">
           <span className="stat-value">{items.length}</span>
-          <span className="stat-label">блюд всего</span>
+          <span className="stat-label">{t("menu.itemsTotal")}</span>
         </div>
         <div className="stat">
           <span className="stat-value">
             {items.filter((item) => item.isAvailable).length}
           </span>
-          <span className="stat-label">в продаже</span>
+          <span className="stat-label">{t("menu.available")}</span>
         </div>
       </div>
 
       {categories.length === 0 ? (
         <div className="panel">
           <div className="empty-state">
-            <p>
-              Меню пустое. Начните с категории — блюда добавляются внутрь неё.
-            </p>
+            <p>{t("menu.empty")}</p>
             {canEdit ? (
               <button
                 type="button"
                 className="primary"
                 onClick={() => setCategoryDraft({ ...EMPTY_CATEGORY })}
               >
-                Создать категорию
+                {t("menu.createCategory")}
               </button>
             ) : null}
           </div>
@@ -203,7 +209,7 @@ export function MenuManager({
         <div className="menu-layout">
           <section className="panel">
             <div className="panel-head">
-              <span>Категории</span>
+              <span>{t("menu.categories")}</span>
               <span className="spacer" />
               <span>{categories.length}</span>
             </div>
@@ -223,10 +229,14 @@ export function MenuManager({
                     onClick={() => setSelected(category.id)}
                     aria-current={category.id === current?.id}
                   >
-                    <span className="category-name">{category.nameRu}</span>
+                    <span className="category-name">
+                      {categoryName(category)}
+                    </span>
                     <span className="category-meta">
-                      {category.nameDe} ·{" "}
-                      {countByCategory.get(category.id) ?? 0} блюд
+                      {locale === "de" ? category.nameRu : category.nameDe} ·{" "}
+                      {t("menu.itemsCount", {
+                        count: countByCategory.get(category.id) ?? 0,
+                      })}
                     </span>
                   </button>
                   {canEdit ? (
@@ -234,7 +244,9 @@ export function MenuManager({
                       <button
                         type="button"
                         className="ghost"
-                        aria-label={`Изменить категорию ${category.nameRu}`}
+                        aria-label={t("menu.editCategory", {
+                          name: categoryName(category),
+                        })}
                         onClick={() =>
                           setCategoryDraft(toCategoryDraft(category))
                         }
@@ -244,7 +256,9 @@ export function MenuManager({
                       <button
                         type="button"
                         className="ghost danger"
-                        aria-label={`Удалить категорию ${category.nameRu}`}
+                        aria-label={t("menu.deleteCategory", {
+                          name: categoryName(category),
+                        })}
                         onClick={() => removeCategory(category)}
                       >
                         ×
@@ -260,14 +274,18 @@ export function MenuManager({
             {visible.length === 0 ? (
               <div className="panel">
                 <div className="empty-state">
-                  <p>В категории «{current?.nameRu}» пока нет блюд.</p>
+                  <p>
+                    {t("menu.categoryEmpty", {
+                      name: current ? categoryName(current) : "",
+                    })}
+                  </p>
                   {canEdit && current ? (
                     <button
                       type="button"
                       className="primary"
                       onClick={() => setItemDraft(emptyItem(current.id))}
                     >
-                      Добавить блюдо
+                      {t("menu.addItem")}
                     </button>
                   ) : null}
                 </div>
@@ -277,12 +295,14 @@ export function MenuManager({
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Блюдо</th>
-                      <th>Аллергены</th>
-                      <th className="num">Цена</th>
-                      <th className="num">Мин</th>
-                      <th>Статус</th>
-                      {canEdit ? <th className="actions">Действия</th> : null}
+                      <th>{t("menu.item")}</th>
+                      <th>{t("menu.allergens")}</th>
+                      <th className="num">{t("menu.price")}</th>
+                      <th className="num">{t("menu.minutes")}</th>
+                      <th>{t("menu.status")}</th>
+                      {canEdit ? (
+                        <th className="actions">{t("menu.actions")}</th>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -291,60 +311,67 @@ export function MenuManager({
                         key={item.id}
                         className={item.isAvailable ? "" : "is-off"}
                       >
-                        <td data-label="Блюдо">
-                          <span className="row-title">{item.nameRu}</span>
+                        <td data-label={t("menu.item")}>
+                          <span className="row-title">{itemName(item)}</span>
                           <span className="row-sub">
-                            {item.nameDe} / {item.nameEn}
+                            {otherItemNames(item)}
                             {item.isVegan
-                              ? " · веганское"
+                              ? ` · ${t("menu.vegan")}`
                               : item.isVegetarian
-                                ? " · вегетарианское"
+                                ? ` · ${t("menu.vegetarian")}`
                                 : ""}
                           </span>
                         </td>
-                        <td data-label="Аллергены">
+                        <td data-label={t("menu.allergens")}>
                           {item.allergens.length === 0 ? (
-                            <span className="badge off">нет</span>
+                            <span className="badge off">
+                              {t("common.none")}
+                            </span>
                           ) : (
                             <span className="chip-row">
                               {item.allergens.map((allergen) => (
                                 <span className="chip static" key={allergen}>
-                                  {ALLERGEN_LABELS[allergen]}
+                                  {t(`allergen.${allergen}`)}
                                 </span>
                               ))}
                             </span>
                           )}
                         </td>
-                        <td data-label="Цена" className="num">
+                        <td data-label={t("menu.price")} className="num">
                           <span className="item-card-price">
-                            {formatEuros(item.priceCents)}
+                            {formatEuros(item.priceCents, intlLocale(locale))}
                           </span>
                         </td>
-                        <td data-label="Готовится" className="num">
+                        <td data-label={t("menu.minutes")} className="num">
                           {item.prepMinutes}
                         </td>
-                        <td data-label="Статус">
+                        <td data-label={t("menu.status")}>
                           {item.isAvailable ? (
-                            <span className="badge on">в продаже</span>
+                            <span className="badge on">{t("menu.onSale")}</span>
                           ) : (
-                            <span className="badge off">снято</span>
+                            <span className="badge off">
+                              {t("menu.offSale")}
+                            </span>
                           )}
                         </td>
                         {canEdit ? (
-                          <td data-label="Действия" className="actions">
+                          <td
+                            data-label={t("menu.actions")}
+                            className="actions"
+                          >
                             <button
                               type="button"
                               className="ghost"
                               onClick={() => setItemDraft(toItemDraft(item))}
                             >
-                              Изменить
+                              {t("common.edit")}
                             </button>
                             <button
                               type="button"
                               className="ghost danger"
                               onClick={() => removeItem(item)}
                             >
-                              Удалить
+                              {t("common.delete")}
                             </button>
                           </td>
                         ) : null}

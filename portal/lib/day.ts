@@ -61,32 +61,40 @@ export function nearestDays(today: string, count: number): string[] {
   return Array.from({ length: count }, (_, index) => shiftDay(today, index));
 }
 
-const WEEKDAY = new Intl.DateTimeFormat("ru-RU", {
-  timeZone: "UTC",
-  weekday: "short",
-  day: "2-digit",
-  month: "2-digit",
-});
-
 /** «Сегодня» / «Завтра» / «пт, 22.08» — подпись чипа выбора дня. */
-export function formatDayLabel(iso: string, today: string): string {
+export function formatDayLabel(
+  iso: string,
+  today: string,
+  locale = "de-DE",
+): string {
   if (iso === today) {
-    return "Сегодня";
+    return locale.startsWith("ru")
+      ? "Сегодня"
+      : locale.startsWith("en")
+        ? "Today"
+        : "Heute";
   }
   if (iso === shiftDay(today, 1)) {
-    return "Завтра";
+    return locale.startsWith("ru")
+      ? "Завтра"
+      : locale.startsWith("en")
+        ? "Tomorrow"
+        : "Morgen";
   }
-  return WEEKDAY.format(toUtcNoon(iso));
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(toUtcNoon(iso));
 }
 
 /** «18 августа 2026 г.» — полная дата для заголовка и подтверждений. */
-const FULL = new Intl.DateTimeFormat("ru-RU", {
-  timeZone: "UTC",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-
-export function formatDayFull(iso: string): string {
-  return FULL.format(toUtcNoon(iso));
+export function formatDayFull(iso: string, locale = "de-DE"): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(toUtcNoon(iso));
 }

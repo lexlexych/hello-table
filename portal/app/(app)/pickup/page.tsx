@@ -1,5 +1,6 @@
 import { PickupBoard } from "@/components/pickup-board";
 import { db } from "@/lib/db";
+import { getPortalLocale } from "@/lib/i18n/server";
 import { listItems } from "@/lib/menu";
 import { listOrdersForToday } from "@/lib/pickup";
 import { requireSessionForPage } from "@/lib/rbac";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function PickupPage() {
   // Заказы ведут обе роли, и одинаково: оператор их и создаёт, и переводит (§7.2).
   await requireSessionForPage(["admin", "operator"]);
+  const locale = await getPortalLocale();
 
   const sql = db();
   const restaurantId = await getRestaurantId(sql);
@@ -25,7 +27,12 @@ export default async function PickupPage() {
     .filter((item) => item.isAvailable)
     .map((item) => ({
       id: item.id,
-      name: item.nameRu,
+      name:
+        locale === "de"
+          ? item.nameDe
+          : locale === "en"
+            ? item.nameEn
+            : item.nameRu,
       priceCents: item.priceCents,
     }));
 

@@ -109,13 +109,11 @@ export function parseEuros(value: string): number | undefined {
   return Math.round(Number(normalized) * 100);
 }
 
-const euroFormat = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
-export function formatEuros(cents: number): string {
-  return euroFormat.format(cents / 100);
+export function formatEuros(cents: number, locale = "de-DE"): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
 }
 
 /** Значение для поля ввода цены: без символа валюты, с запятой как разделителем. */

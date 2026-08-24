@@ -111,14 +111,20 @@ describe("nearestDays", () => {
 
 describe("подписи дней", () => {
   it("называет сегодня и завтра словами", () => {
-    expect(formatDayLabel("2026-08-18", "2026-08-18")).toBe("Сегодня");
-    expect(formatDayLabel("2026-08-19", "2026-08-18")).toBe("Завтра");
+    expect(formatDayLabel("2026-08-18", "2026-08-18")).toBe("Heute");
+    expect(formatDayLabel("2026-08-19", "2026-08-18")).toBe("Morgen");
+    expect(formatDayLabel("2026-08-18", "2026-08-18", "ru-RU")).toBe("Сегодня");
+    expect(formatDayLabel("2026-08-19", "2026-08-18", "en-GB")).toBe(
+      "Tomorrow",
+    );
   });
 
   it("остальные дни подписывает днём недели и датой, не уезжая на сутки", () => {
     // 22.08.2026 — суббота. Подпись форматируется в UTC, поэтому не зависит от
     // таймзоны машины, где запущен тест.
-    expect(formatDayLabel("2026-08-22", "2026-08-18")).toBe("сб, 22.08");
-    expect(formatDayFull("2026-08-22")).toBe("22 августа 2026 г.");
+    expect(formatDayLabel("2026-08-22", "2026-08-18", "ru-RU")).toBe(
+      "сб, 22.08",
+    );
+    expect(formatDayFull("2026-08-22", "ru-RU")).toBe("22 августа 2026 г.");
   });
 });

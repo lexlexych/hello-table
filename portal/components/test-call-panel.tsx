@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useI18n } from "@/components/i18n-provider";
 
 /**
  * `livekit-client` работает только в браузере, поэтому компонент звонка не рендерится на
@@ -8,9 +9,14 @@ import dynamic from "next/dynamic";
  */
 const TestCall = dynamic(() => import("./test-call"), {
   ssr: false,
-  loading: () => <p className="call-status">Загружаю клиент звонка…</p>,
+  loading: () => <TestCallLoading />,
 });
 
 export function TestCallPanel() {
   return <TestCall />;
+}
+
+function TestCallLoading() {
+  const { t } = useI18n();
+  return <p className="call-status">{t("testCall.loadingClient")}</p>;
 }
